@@ -1,0 +1,311 @@
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  getPlaceDetails,
+  resolveMapsLink,
+  searchPlaces,
+  type Place,
+  type PlaceSearchResult,
+} from "../../../lib/places";
+import { saveRestaurantToCollection, type CaptureMethod } from "../../../lib/db";
+
+type Tab = "link" | "search" | "quick_add";
+
+export default function AddRestaurantScreen() {
+  const { id: collectionId } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const [tab, setTab] = useState<Tab>("search");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Link import state
+  const [link, setLink] = useState("");
+  const [resolved, setResolved] = useState<Place | null>(null);
+
+  // Search state
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<PlaceSearchResult[]>([]);
+
+  // Quick-add state
+  const [quickName, setQuickName] = useState("");
+  const [quickAddress, setQuickAddress] = useState("");
+
+  function done() {
+    router.back();
+  }
+
+  async function save(
+    place: Parameters<typeof saveRestaurantToCollection>[1],
+    method: CaptureMethod,
+  ) {
+    if (!collectionId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await saveRestaurantToCollection(collectionId, place, method);
+      done();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // --- Link import -------------------------------------------------------
+  async function onResolveLink() {
+    if (!link.trim()) return;
+    setBusy(true);
+    setError(null);
+    setResolved(null);
+    try {
+      const place = await resolveMapsLink(link.trim());
+      setResolved(place);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // --- Search ------------------------------------------------------------
+  async function onSearch() {
+    if (!query.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await searchPlaces(query.trim());
+      setResults(r);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onPickResult(r: PlaceSearchResult) {
+    setBusy(true);
+    setError(null);
+    try {
+      // Fetch full details (phone/website/hours) before saving.
+      const place = await getPlaceDetails(r.google_place_id);
+      await save(place, "search");
+    } catch (e) {
+      setError(String(e));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.tabs}>
+        {(
+          [
+            ["link", "Paste link"],
+            ["search", "Search"],
+            ["quick_add", "Quick add"],
+          ] as [Tab, string][]
+        ).map(([key, label]) => (
+          <Pressable
+            key={key}
+            style={[styles.tab, tab === key && styles.tabActive]}
+            onPress={() => {
+              setTab(key);
+              setError(null);
+            }}
+          >
+            <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>
+              {label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {busy ? <ActivityIndicator style={{ marginVertical: 12 }} /> : null}
+
+      {/* --- Paste a Google Maps link --- */}
+      {tab === "link" && (
+        <View style={styles.section}>
+          <Text style={styles.help}>
+            Paste a Google Maps link (including maps.app.goo.gl short links).
+          </Text>
+          <TextInput
+            style={styles.input}
+            placeholder="https://maps.app.goo.gl/…"
+            value={link}
+            onChangeText={setLink}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Pressable
+            style={[styles.button, busy && styles.buttonDisabled]}
+            onPress={onResolveLink}
+            disabled={busy}
+          >
+            <Text style={styles.buttonText}>Resolve</Text>
+          </Pressable>
+
+          {resolved && (
+            <View style={styles.confirm}>
+              <Text style={styles.confirmTitle}>{resolved.name}</Text>
+              {resolved.address ? (
+                <Text style={styles.confirmSub}>{resolved.address}</Text>
+              ) : null}
+              <Pressable
+                style={[styles.button, busy && styles.buttonDisabled]}
+                onPress={() => save(resolved, "link")}
+                disabled={busy}
+              >
+                <Text style={styles.buttonText}>Save to collection</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* --- Search by name --- */}
+      {tab === "search" && (
+        <View style={styles.section}>
+          <Text style={styles.help}>Search for a restaurant by name.</Text>
+          <View style={styles.searchRow}>
+            <TextInput
+              style={[styles.input, { flex: 1 }]}
+              placeholder="e.g. Blue Bottle Coffee"
+              value={query}
+              onChangeText={setQuery}
+              onSubmitEditing={onSearch}
+              returnKeyType="search"
+            />
+            <Pressable
+              style={[styles.button, busy && styles.buttonDisabled]}
+              onPress={onSearch}
+              disabled={busy}
+            >
+              <Text style={styles.buttonText}>Go</Text>
+            </Pressable>
+          </View>
+
+          {results.map((r) => (
+            <Pressable
+              key={r.google_place_id}
+              style={styles.result}
+              onPress={() => onPickResult(r)}
+            >
+              <Text style={styles.confirmTitle}>{r.name}</Text>
+              {r.address ? (
+                <Text style={styles.confirmSub}>{r.address}</Text>
+              ) : null}
+            </Pressable>
+          ))}
+        </View>
+      )}
+
+      {/* --- Quick add free text fallback --- */}
+      {tab === "quick_add" && (
+        <View style={styles.section}>
+          <Text style={styles.help}>
+            Can’t find it? Add it manually. Only a name is required.
+          </Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Restaurant name"
+            value={quickName}
+            onChangeText={setQuickName}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Address (optional)"
+            value={quickAddress}
+            onChangeText={setQuickAddress}
+          />
+          <Pressable
+            style={[
+              styles.button,
+              (busy || !quickName.trim()) && styles.buttonDisabled,
+            ]}
+            onPress={() =>
+              save(
+                {
+                  name: quickName.trim(),
+                  address: quickAddress.trim() || null,
+                },
+                "quick_add",
+              )
+            }
+            disabled={busy || !quickName.trim()}
+          >
+            <Text style={styles.buttonText}>Save to collection</Text>
+          </Pressable>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+  content: { padding: 16, gap: 12 },
+  tabs: {
+    flexDirection: "row",
+    backgroundColor: "#f0f0f0",
+    borderRadius: 10,
+    padding: 4,
+  },
+  tab: { flex: 1, paddingVertical: 8, alignItems: "center", borderRadius: 8 },
+  tabActive: { backgroundColor: "#fff" },
+  tabText: { color: "#666", fontWeight: "500" },
+  tabTextActive: { color: "#1f6feb" },
+  section: { gap: 10 },
+  help: { color: "#666" },
+  searchRow: { flexDirection: "row", gap: 8 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: "#1f6feb",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonDisabled: { opacity: 0.5 },
+  buttonText: { color: "#fff", fontWeight: "600" },
+  confirm: {
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 10,
+    padding: 14,
+    gap: 8,
+    backgroundColor: "#fafafa",
+  },
+  confirmTitle: { fontSize: 16, fontWeight: "600" },
+  confirmSub: { color: "#555" },
+  result: {
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 10,
+    padding: 14,
+    gap: 4,
+    backgroundColor: "#fafafa",
+  },
+  error: { color: "#c00" },
+});

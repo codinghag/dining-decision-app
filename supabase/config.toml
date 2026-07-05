@@ -1,0 +1,12 @@
+# Supabase project config. `project_id` should match your linked project ref
+# once you run `supabase link`. This file is safe to commit.
+project_id = "dining-decision-app"
+
+[functions.places-search]
+verify_jwt = true
+
+[functions.places-details]
+verify_jwt = true
+
+[functions.places-resolve-link]
+verify_jwt = true
