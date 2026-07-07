@@ -10,3 +10,9 @@ verify_jwt = true
 
 [functions.places-resolve-link]
 verify_jwt = true
+
+[functions.join-collection]
+verify_jwt = true
+
+[functions.start-decide-session]
+verify_jwt = true

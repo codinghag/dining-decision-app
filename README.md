@@ -46,19 +46,26 @@ See [`supabase/README.md`](./supabase/README.md) for the full walkthrough. In sh
 ## Project structure
 
 ```
-app/                         Expo Router screens
-  _layout.tsx                Root stack; anonymous session bootstrap + app_opened event
-  index.tsx                  Collections list + create
-  collection/[id]/index.tsx  Collection detail (its restaurants)
-  collection/[id]/add.tsx    Add restaurant — link / search / quick-add
+app/                                   Expo Router screens
+  _layout.tsx                          Root stack; anon bootstrap, app_opened, push-token register
+  index.tsx                            Collections list + create
+  collection/[id]/index.tsx            Collection detail; Share + "Let's Decide"
+  collection/[id]/add.tsx              Add restaurant — link / search / quick-add
+  collection/[id]/join.tsx             Invite landing — auto-joins via edge fn (Phase 2)
+  collection/[id]/decide/[sessionId].tsx  Decide Now swipe deck + live tallies (Phase 2)
 lib/
   supabase.ts                Client init, cross-platform storage, anon sign-in
   analytics.ts               logEvent() -> analytics_events
-  places.ts                  Client wrappers for the 3 edge functions
+  places.ts                  Client wrappers for the Places edge functions
   db.ts                      Collections + save-restaurant data layer
+  decide.ts                  Sessions, votes, winner RPC, invite-accept (Phase 2)
+  invite.ts                  Build + share the collection invite link (Phase 2)
+  push.ts                    Expo push-token registration (native-only) (Phase 2)
 supabase/
-  migrations/0001_init.sql   Schema, triggers, RLS
-  functions/                 places-search / places-details / places-resolve-link
+  migrations/0001_init.sql   Phase 1 schema, triggers, RLS
+  migrations/0002_*.sql      Owner-select RLS fix
+  migrations/0003_phase2.sql push_tokens, decide_sessions, votes, winner RPC, RLS (Phase 2)
+  functions/                 places-* ; join-collection, start-decide-session (Phase 2)
   config.toml, README.md
 ```
 
@@ -69,14 +76,29 @@ supabase/
 | `app_opened`        | once per cold start (root layout)      |
 | `collection_created`| a collection is created                |
 | `restaurant_saved`  | a restaurant is captured — `properties.method` is `link` \| `search` \| `quick_add` |
+| `invite_sent`       | user taps Share / copies the invite link (Phase 2) |
+| `invite_accepted`   | a visitor joins a collection via its link (Phase 2) |
+| `decide_session_started` | a "Let's Decide" session is created (Phase 2) |
+| `vote_cast`         | a swipe/tap vote on a restaurant — `properties.vote` bool (Phase 2) |
+| `session_completed` | a session is finished — `properties.winner_restaurant_id` (Phase 2) |
 
-## Phase 1 scope — deliberately NOT built yet
+## Phase 2 — built
 
-The following are Phase 2+ or permanently out of scope, and are intentionally
-absent:
+- **Invite / share:** a collection's link carries its `collection_id` (an
+  unguessable UUID = the invite token). Opening it hits the `join-collection`
+  edge function (service role) which idempotently adds the visitor as a
+  `member`. Share sheet on native, clipboard on web.
+- **Decide Now:** `start-decide-session` fixes a random 3 restaurants and
+  notifies other members via Expo push. Members swipe (gesture-handler +
+  reanimated) — the data underneath is a plain binary vote per restaurant,
+  aggregated as counts (no ranking). Live tallies via Supabase Realtime on the
+  `votes` table. "Finish" calls the `complete_decide_session` RPC, which
+  computes the winner (most yes; ties broken by `restaurant_id`) server-side.
+- **Push:** `push_tokens` table populated by `expo-notifications` on native
+  start; see `supabase/README.md` for what a human must do to test live delivery.
 
-- **Phase 2:** Collections invite/share UI, "Decide Now" voting / swipe UI,
-  vote & decide-session tables, push notifications.
+## Out of scope — deliberately NOT built
+
 - **Out of scope (PRD §6):** Instagram / TikTok scraping, AI recommendations,
   subscriptions, sponsored placements, reservation booking, review badges,
   multi-axis reviews, visit-purpose tagging, "date invitation" AI pickup lines,
