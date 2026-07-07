@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "dining-decision-app",
-    "slug": "dining-decision-app",
+    "slug": "dining-decision",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -30,6 +30,13 @@
     "plugins": [
       "expo-router",
       "expo-notifications"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "895e4baa-4132-43d7-ab7a-e3f85cfd7d96"
+      }
+    },
+    "owner": "ceenahs-team"
   }
 }
