@@ -13,6 +13,7 @@ export interface Place {
   website: string | null;
   hours: unknown | null;
   cuisine: string | null;
+  price_level: number | null;
 }
 
 export interface PlaceSearchResult {
@@ -22,6 +23,7 @@ export interface PlaceSearchResult {
   lat: number | null;
   lng: number | null;
   cuisine: string | null;
+  price_level: number | null;
 }
 
 // Thin wrappers around the three Supabase Edge Functions. The app never talks

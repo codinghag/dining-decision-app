@@ -28,7 +28,7 @@ import {
   type Vote,
 } from "../../../../lib/decide";
 import { Button } from "../../../../components/Button";
-import { CuisineBadge } from "../../../../components/CuisineBadge";
+import { RestaurantTags } from "../../../../components/RestaurantTags";
 import { colors, radius, shadow, spacing, type } from "../../../../lib/theme";
 
 const SWIPE_THRESHOLD = 110; // px of horizontal travel to count as a decision
@@ -300,9 +300,11 @@ export default function DecideScreen() {
                     <Text style={styles.stampPassText}>PASS</Text>
                   </Animated.View>
                   <Text style={styles.cardName}>{current?.name}</Text>
-                  {current?.cuisine ? (
-                    <CuisineBadge cuisine={current.cuisine} style={styles.cardCuisine} />
-                  ) : null}
+                  <RestaurantTags
+                    cuisine={current?.cuisine}
+                    priceLevel={current?.price_level}
+                    style={styles.cardCuisine}
+                  />
                   {current?.address ? (
                     <Text style={styles.cardAddress}>{current.address}</Text>
                   ) : null}

@@ -20,6 +20,7 @@ export interface Restaurant {
   website: string | null;
   hours: unknown | null;
   cuisine: string | null;
+  price_level: number | null;
   source_url: string | null;
   source_platform: "instagram" | "tiktok" | null;
   created_by: string | null;
@@ -138,6 +139,7 @@ export async function saveRestaurantToCollection(
         website: place.website ?? null,
         hours: place.hours ?? null,
         cuisine: place.cuisine ?? null,
+        price_level: place.price_level ?? null,
         source_url: social?.source_url ?? null,
         source_platform: social?.source_platform ?? null,
         created_by: userId,

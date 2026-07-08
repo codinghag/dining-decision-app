@@ -15,6 +15,7 @@ export interface NormalizedPlace {
   website: string | null;
   hours: unknown | null;
   cuisine: string | null;
+  price_level: number | null;
 }
 
 export interface PlaceSearchResult {
@@ -24,6 +25,22 @@ export interface PlaceSearchResult {
   lat: number | null;
   lng: number | null;
   cuisine: string | null;
+  price_level: number | null;
+}
+
+// Google's priceLevel is a string enum; normalize to 1-4 ($ .. $$$$) to match
+// the restaurants.price_level column. PRICE_LEVEL_FREE/UNSPECIFIED -> null --
+// "free" isn't a meaningful price tier for a restaurant, and unspecified
+// just means Google has no data.
+const PRICE_LEVEL_MAP: Record<string, number> = {
+  PRICE_LEVEL_INEXPENSIVE: 1,
+  PRICE_LEVEL_MODERATE: 2,
+  PRICE_LEVEL_EXPENSIVE: 3,
+  PRICE_LEVEL_VERY_EXPENSIVE: 4,
+};
+
+function parsePriceLevel(level: unknown): number | null {
+  return typeof level === "string" ? PRICE_LEVEL_MAP[level] ?? null : null;
 }
 
 function apiKey(): string {
@@ -45,6 +62,7 @@ const DETAILS_FIELD_MASK = [
   "websiteUri",
   "regularOpeningHours",
   "primaryTypeDisplayName",
+  "priceLevel",
 ].join(",");
 
 // Search field mask — lightweight list for pick-a-result UI.
@@ -54,6 +72,7 @@ const SEARCH_FIELD_MASK = [
   "places.formattedAddress",
   "places.location",
   "places.primaryTypeDisplayName",
+  "places.priceLevel",
 ].join(",");
 
 // deno-lint-ignore no-explicit-any
@@ -68,6 +87,7 @@ function normalizeDetails(p: any): NormalizedPlace {
     website: p.websiteUri ?? null,
     hours: p.regularOpeningHours ?? null,
     cuisine: p.primaryTypeDisplayName?.text ?? null,
+    price_level: parsePriceLevel(p.priceLevel),
   };
 }
 
@@ -131,6 +151,7 @@ export async function searchText(
     lat: p.location?.latitude ?? null,
     lng: p.location?.longitude ?? null,
     cuisine: p.primaryTypeDisplayName?.text ?? null,
+    price_level: parsePriceLevel(p.priceLevel),
   }));
 }
 

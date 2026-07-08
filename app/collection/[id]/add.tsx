@@ -15,7 +15,7 @@ import { getCurrentLocation, type Coords } from "../../../lib/location";
 import { TextField } from "../../../components/TextField";
 import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
-import { CuisineBadge } from "../../../components/CuisineBadge";
+import { RestaurantTags } from "../../../components/RestaurantTags";
 import { colors, radius, spacing, type } from "../../../lib/theme";
 
 type Tab = "link" | "search" | "quick_add" | "import";
@@ -45,6 +45,7 @@ export default function AddRestaurantScreen() {
   const [quickName, setQuickName] = useState("");
   const [quickAddress, setQuickAddress] = useState("");
   const [quickCuisine, setQuickCuisine] = useState("");
+  const [quickPriceLevel, setQuickPriceLevel] = useState<number | null>(null);
 
   // Best-effort device location, fetched once, used to bias Search/Import
   // results toward nearby restaurants. Never blocks the UI -- stays null
@@ -237,7 +238,7 @@ export default function AddRestaurantScreen() {
           {resolved && (
             <Card style={styles.confirm}>
               <Text style={styles.confirmTitle}>{resolved.name}</Text>
-              {resolved.cuisine ? <CuisineBadge cuisine={resolved.cuisine} /> : null}
+              <RestaurantTags cuisine={resolved.cuisine} priceLevel={resolved.price_level} />
               {resolved.address ? (
                 <Text style={styles.confirmSub}>{resolved.address}</Text>
               ) : null}
@@ -271,7 +272,7 @@ export default function AddRestaurantScreen() {
             <Pressable key={r.google_place_id} onPress={() => onPickResult(r)}>
               <Card>
                 <Text style={styles.confirmTitle}>{r.name}</Text>
-                {r.cuisine ? <CuisineBadge cuisine={r.cuisine} /> : null}
+                <RestaurantTags cuisine={r.cuisine} priceLevel={r.price_level} />
                 {r.address ? <Text style={styles.confirmSub}>{r.address}</Text> : null}
               </Card>
             </Pressable>
@@ -300,6 +301,25 @@ export default function AddRestaurantScreen() {
             value={quickCuisine}
             onChangeText={setQuickCuisine}
           />
+          <Text style={styles.priceLabel}>Price range (optional)</Text>
+          <View style={styles.priceRow}>
+            {[1, 2, 3, 4].map((level) => (
+              <Pressable
+                key={level}
+                style={[styles.priceOption, quickPriceLevel === level && styles.priceOptionActive]}
+                onPress={() => setQuickPriceLevel(quickPriceLevel === level ? null : level)}
+              >
+                <Text
+                  style={[
+                    styles.priceOptionText,
+                    quickPriceLevel === level && styles.priceOptionTextActive,
+                  ]}
+                >
+                  {"$".repeat(level)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
           <Button
             label="Save to collection"
             loading={busy}
@@ -310,6 +330,7 @@ export default function AddRestaurantScreen() {
                   name: quickName.trim(),
                   address: quickAddress.trim() || null,
                   cuisine: quickCuisine.trim() || null,
+                  price_level: quickPriceLevel,
                 },
                 "quick_add",
               )
@@ -368,7 +389,7 @@ export default function AddRestaurantScreen() {
                       <Pressable key={r.google_place_id} onPress={() => onImportPick(link, r)}>
                         <Card>
                           <Text style={styles.confirmTitle}>{r.name}</Text>
-                          {r.cuisine ? <CuisineBadge cuisine={r.cuisine} /> : null}
+                          <RestaurantTags cuisine={r.cuisine} priceLevel={r.price_level} />
                           {r.address ? (
                             <Text style={styles.confirmSub}>{r.address}</Text>
                           ) : null}
@@ -409,6 +430,19 @@ const styles = StyleSheet.create({
   searchRow: { flexDirection: "row", gap: spacing.sm },
   searchInput: { flex: 1 },
   confirm: { gap: spacing.sm, marginTop: spacing.xs },
+  priceLabel: { ...type.label, color: colors.inkSecondary, marginTop: -spacing.xs },
+  priceRow: { flexDirection: "row", gap: spacing.sm },
+  priceOption: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: "center",
+  },
+  priceOptionActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+  priceOptionText: { ...type.subtitle, color: colors.inkSecondary },
+  priceOptionTextActive: { color: colors.primaryDark },
   confirmTitle: { ...type.subtitle },
   confirmSub: { ...type.body, color: colors.inkSecondary },
   error: { color: colors.pass },
