@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import type { Coords } from "./location";
 
 // Normalized place shape returned by the edge functions. Maps onto the
 // restaurants table columns.
@@ -24,11 +25,14 @@ export interface PlaceSearchResult {
 // Thin wrappers around the three Supabase Edge Functions. The app never talks
 // to Google directly — the Places API key lives only as a server-side secret.
 
+// `near` optionally biases results toward the given coordinates (see
+// lib/location.ts) -- purely additive, search still works without it.
 export async function searchPlaces(
   query: string,
+  near?: Coords,
 ): Promise<PlaceSearchResult[]> {
   const { data, error } = await supabase.functions.invoke("places-search", {
-    body: { query },
+    body: { query, lat: near?.lat, lng: near?.lng },
   });
   if (error) throw error;
   return (data?.results ?? []) as PlaceSearchResult[];

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
@@ -11,6 +11,7 @@ import {
 } from "../../../lib/places";
 import { saveRestaurantToCollection, type CaptureMethod } from "../../../lib/db";
 import { extractSocialLinks, type SocialLink } from "../../../lib/socialImport";
+import { getCurrentLocation, type Coords } from "../../../lib/location";
 import { TextField } from "../../../components/TextField";
 import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
@@ -42,6 +43,14 @@ export default function AddRestaurantScreen() {
   // Quick-add state
   const [quickName, setQuickName] = useState("");
   const [quickAddress, setQuickAddress] = useState("");
+
+  // Best-effort device location, fetched once, used to bias Search/Import
+  // results toward nearby restaurants. Never blocks the UI -- stays null
+  // (unbiased search) if permission is denied or unavailable.
+  const [location, setLocation] = useState<Coords | null>(null);
+  useEffect(() => {
+    getCurrentLocation().then(setLocation);
+  }, []);
 
   // Import state
   const [importLinks, setImportLinks] = useState<SocialLink[]>([]);
@@ -90,7 +99,7 @@ export default function AddRestaurantScreen() {
     setBusy(true);
     setError(null);
     try {
-      const r = await searchPlaces(query.trim());
+      const r = await searchPlaces(query.trim(), location ?? undefined);
       setResults(r);
     } catch (e) {
       setError(String(e));
@@ -149,7 +158,7 @@ export default function AddRestaurantScreen() {
     if (!row?.query.trim()) return;
     updateImportRow(url, { status: "pending" });
     try {
-      const results = await searchPlaces(row.query.trim());
+      const results = await searchPlaces(row.query.trim(), location ?? undefined);
       updateImportRow(url, { results });
     } catch (e) {
       setError(String(e));

@@ -82,9 +82,17 @@ export async function placeDetails(placeId: string): Promise<NormalizedPlace> {
   return normalizeDetails(await res.json());
 }
 
+// Bias radius for "near me" search -- wide enough to still surface a good
+// match in a smaller city, without so wide it stops meaning "nearby" in a
+// dense one. locationBias (unlike locationRestriction) nudges ranking rather
+// than excluding everything outside the circle, so an exact-name match
+// further away can still surface.
+const NEARBY_BIAS_RADIUS_METERS = 20_000;
+
 export async function searchText(
   query: string,
   maxResults = 10,
+  location?: { lat: number; lng: number },
 ): Promise<PlaceSearchResult[]> {
   const res = await fetch(`${PLACES_BASE}/places:searchText`, {
     method: "POST",
@@ -93,7 +101,18 @@ export async function searchText(
       "X-Goog-FieldMask": SEARCH_FIELD_MASK,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ textQuery: query, maxResultCount: maxResults }),
+    body: JSON.stringify({
+      textQuery: query,
+      maxResultCount: maxResults,
+      ...(location && {
+        locationBias: {
+          circle: {
+            center: { latitude: location.lat, longitude: location.lng },
+            radius: NEARBY_BIAS_RADIUS_METERS,
+          },
+        },
+      }),
+    }),
   });
   if (!res.ok) {
     throw new Error(`Places search failed (${res.status}): ${await res.text()}`);

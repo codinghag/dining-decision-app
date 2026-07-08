@@ -29,7 +29,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Forked uses your location to show nearby restaurants first when you search."
+        }
+      ]
     ],
     "extra": {
       "router": {},
