@@ -1,4 +1,4 @@
-# Dining Decision App
+# Forked
 
 Help friend groups decide where to eat, fast, at the moment it matters. This is
 the **Phase 1 MVP**: capture restaurants into shared collections. It validates a

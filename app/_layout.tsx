@@ -34,6 +34,7 @@ export default function RootLayout() {
     return (
       <View style={styles.loading}>
         <Text style={styles.loadingLogo}>🍽️</Text>
+        <Text style={styles.loadingBrand}>Forked</Text>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Starting up…</Text>
       </View>
@@ -85,5 +86,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingLogo: { fontSize: 44, marginBottom: 4 },
+  loadingBrand: { ...type.title, marginBottom: 4 },
   loadingText: { ...type.body, color: colors.inkSecondary },
 });

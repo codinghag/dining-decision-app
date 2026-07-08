@@ -1,4 +1,4 @@
-# Supabase backend — Dining Decision App
+# Supabase backend — Forked
 
 This directory holds everything for the backend: the database schema
 (`migrations/`) and the three Google Places proxy Edge Functions (`functions/`).
