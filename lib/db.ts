@@ -19,6 +19,8 @@ export interface Restaurant {
   phone: string | null;
   website: string | null;
   hours: unknown | null;
+  source_url: string | null;
+  source_platform: "instagram" | "tiktok" | null;
   created_by: string | null;
   created_at: string;
 }
@@ -81,14 +83,20 @@ export async function listCollectionRestaurants(
     .filter((r): r is Restaurant => r != null);
 }
 
-export type CaptureMethod = "link" | "search" | "quick_add";
+export type CaptureMethod = "link" | "search" | "quick_add" | "social_import";
+
+export interface SocialSource {
+  source_url: string;
+  source_platform: "instagram" | "tiktok";
+}
 
 // Upsert a restaurant (dedupe on google_place_id when present) and link it into
-// the collection, then log the capture event. Shared by all three capture flows.
+// the collection, then log the capture event. Shared by all capture flows.
 export async function saveRestaurantToCollection(
   collectionId: string,
   place: Partial<Place> & { name: string },
   method: CaptureMethod,
+  social?: SocialSource,
 ): Promise<Restaurant> {
   const userId = await getUserId();
   if (!userId) throw new Error("Not signed in");
@@ -119,6 +127,8 @@ export async function saveRestaurantToCollection(
         phone: place.phone ?? null,
         website: place.website ?? null,
         hours: place.hours ?? null,
+        source_url: social?.source_url ?? null,
+        source_platform: social?.source_platform ?? null,
         created_by: userId,
       })
       .select("*")
@@ -144,6 +154,7 @@ export async function saveRestaurantToCollection(
     collection_id: collectionId,
     restaurant_id: restaurant.id,
     google_place_id: restaurant.google_place_id,
+    source_platform: social?.source_platform ?? null,
   });
 
   return restaurant;

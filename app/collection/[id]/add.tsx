@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as DocumentPicker from "expo-document-picker";
 import {
   getPlaceDetails,
   resolveMapsLink,
@@ -9,12 +10,19 @@ import {
   type PlaceSearchResult,
 } from "../../../lib/places";
 import { saveRestaurantToCollection, type CaptureMethod } from "../../../lib/db";
+import { extractSocialLinks, type SocialLink } from "../../../lib/socialImport";
 import { TextField } from "../../../components/TextField";
 import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
 import { colors, radius, spacing, type } from "../../../lib/theme";
 
-type Tab = "link" | "search" | "quick_add";
+type Tab = "link" | "search" | "quick_add" | "import";
+
+interface ImportRowState {
+  status: "pending" | "saving" | "saved" | "skipped";
+  query: string;
+  results: PlaceSearchResult[];
+}
 
 export default function AddRestaurantScreen() {
   const { id: collectionId } = useLocalSearchParams<{ id: string }>();
@@ -34,6 +42,10 @@ export default function AddRestaurantScreen() {
   // Quick-add state
   const [quickName, setQuickName] = useState("");
   const [quickAddress, setQuickAddress] = useState("");
+
+  // Import state
+  const [importLinks, setImportLinks] = useState<SocialLink[]>([]);
+  const [importRows, setImportRows] = useState<Record<string, ImportRowState>>({});
 
   function done() {
     router.back();
@@ -100,6 +112,69 @@ export default function AddRestaurantScreen() {
     }
   }
 
+  // --- Import from Instagram/TikTok export --------------------------------
+  function updateImportRow(url: string, patch: Partial<ImportRowState>) {
+    setImportRows((prev) => ({ ...prev, [url]: { ...prev[url], ...patch } }));
+  }
+
+  async function onChooseImportFile() {
+    setError(null);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        base64: false,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const file = result.assets[0];
+      setBusy(true);
+      const links = await extractSocialLinks(file.uri, file.name);
+      setImportLinks(links);
+      setImportRows(
+        Object.fromEntries(
+          links.map((l) => [l.url, { status: "pending", query: "", results: [] } as ImportRowState]),
+        ),
+      );
+      if (links.length === 0) {
+        setError("No Instagram or TikTok links found in that file.");
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onImportSearch(url: string) {
+    const row = importRows[url];
+    if (!row?.query.trim()) return;
+    updateImportRow(url, { status: "pending" });
+    try {
+      const results = await searchPlaces(row.query.trim());
+      updateImportRow(url, { results });
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function onImportPick(link: SocialLink, r: PlaceSearchResult) {
+    updateImportRow(link.url, { status: "saving" });
+    try {
+      const place = await getPlaceDetails(r.google_place_id);
+      await saveRestaurantToCollection(collectionId!, place, "social_import", {
+        source_url: link.url,
+        source_platform: link.platform,
+      });
+      updateImportRow(link.url, { status: "saved" });
+    } catch (e) {
+      setError(String(e));
+      updateImportRow(link.url, { status: "pending" });
+    }
+  }
+
+  function onImportSkip(url: string) {
+    updateImportRow(url, { status: "skipped" });
+  }
+
   return (
     <ScrollView
       style={styles.container}
@@ -112,6 +187,7 @@ export default function AddRestaurantScreen() {
             ["link", "Paste link"],
             ["search", "Search"],
             ["quick_add", "Quick add"],
+            ["import", "Import"],
           ] as [Tab, string][]
         ).map(([key, label]) => (
           <Pressable
@@ -222,6 +298,75 @@ export default function AddRestaurantScreen() {
           />
         </View>
       )}
+
+      {/* --- Import saved posts from an Instagram/TikTok data export --- */}
+      {tab === "import" && (
+        <View style={styles.section}>
+          <Text style={styles.help}>
+            Request your data export from Instagram or TikTok ("Download Your
+            Data"), then upload the file here — .zip or .json both work.
+            We'll pull out any saved post links so you can match each one to
+            a real restaurant.
+          </Text>
+          <Button label="Choose export file" loading={busy} onPress={onChooseImportFile} />
+
+          {importLinks.map((link) => {
+            const row = importRows[link.url];
+            if (!row) return null;
+            return (
+              <Card key={link.url} style={styles.importRow}>
+                <View style={styles.importRowHeader}>
+                  <Text style={styles.importBadge}>
+                    {link.platform === "instagram" ? "Instagram" : "TikTok"}
+                  </Text>
+                  <Text style={styles.importUrl} numberOfLines={1}>
+                    {link.url}
+                  </Text>
+                </View>
+
+                {row.status === "saved" ? (
+                  <Text style={styles.importSaved}>✓ Added to collection</Text>
+                ) : row.status === "skipped" ? (
+                  <Text style={styles.importSkipped}>Skipped</Text>
+                ) : (
+                  <>
+                    <View style={styles.searchRow}>
+                      <TextField
+                        style={styles.searchInput}
+                        placeholder="What restaurant is this?"
+                        value={row.query}
+                        onChangeText={(q) => updateImportRow(link.url, { query: q })}
+                        onSubmitEditing={() => onImportSearch(link.url)}
+                        returnKeyType="search"
+                      />
+                      <Button
+                        label="Go"
+                        loading={row.status === "saving"}
+                        onPress={() => onImportSearch(link.url)}
+                      />
+                    </View>
+                    {row.results.map((r) => (
+                      <Pressable key={r.google_place_id} onPress={() => onImportPick(link, r)}>
+                        <Card>
+                          <Text style={styles.confirmTitle}>{r.name}</Text>
+                          {r.address ? (
+                            <Text style={styles.confirmSub}>{r.address}</Text>
+                          ) : null}
+                        </Card>
+                      </Pressable>
+                    ))}
+                    <Button
+                      label="Skip"
+                      variant="outline"
+                      onPress={() => onImportSkip(link.url)}
+                    />
+                  </>
+                )}
+              </Card>
+            );
+          })}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -247,4 +392,10 @@ const styles = StyleSheet.create({
   confirmTitle: { ...type.subtitle },
   confirmSub: { ...type.body, color: colors.inkSecondary },
   error: { color: colors.pass },
+  importRow: { gap: spacing.sm },
+  importRowHeader: { gap: 2 },
+  importBadge: { ...type.label, color: colors.primary },
+  importUrl: { ...type.caption },
+  importSaved: { ...type.body, color: colors.yes, fontWeight: "600" },
+  importSkipped: { ...type.body, color: colors.inkTertiary },
 });
