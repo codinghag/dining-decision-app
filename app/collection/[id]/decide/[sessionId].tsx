@@ -16,7 +16,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { supabase } from "../../../../lib/supabase";
+import { getUserId, supabase } from "../../../../lib/supabase";
 import type { Restaurant } from "../../../../lib/db";
 import {
   castVote,
@@ -57,6 +57,7 @@ export default function DecideScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [presentCount, setPresentCount] = useState(0);
 
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -132,6 +133,34 @@ export default function DecideScreen() {
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, [sessionId]);
+
+  // Realtime Presence: show how many members are on this session right now.
+  // Keyed by user id so the count is unique members, not tabs/reconnects.
+  useEffect(() => {
+    if (!sessionId) return;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+    (async () => {
+      const userId = (await getUserId()) ?? Math.random().toString(36).slice(2);
+      if (cancelled) return;
+      channel = supabase.channel(`presence:${sessionId}`, {
+        config: { presence: { key: userId } },
+      });
+      channel
+        .on("presence", { event: "sync" }, () => {
+          setPresentCount(Object.keys(channel!.presenceState()).length);
+        })
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED") {
+            await channel!.track({ online_at: new Date().toISOString() });
+          }
+        });
+    })();
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
     };
   }, [sessionId]);
 
@@ -401,7 +430,12 @@ export default function DecideScreen() {
 
           {/* Live tallies from all members */}
           <View style={styles.tallies}>
-            <Text style={styles.talliesTitle}>Live votes</Text>
+            <View style={styles.talliesHeader}>
+              <Text style={styles.talliesTitle}>Live votes</Text>
+              {presentCount > 0 ? (
+                <Text style={styles.presence}>🟢 {presentCount} here now</Text>
+              ) : null}
+            </View>
             {renderTallies()}
           </View>
 
@@ -474,7 +508,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.surfaceMuted,
   },
+  talliesHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   talliesTitle: { ...type.label, marginBottom: 2 },
+  presence: { ...type.caption, color: colors.yes, fontWeight: "600" },
   tallyRow: { gap: 4 },
   tallyHeader: { flexDirection: "row", justifyContent: "space-between" },
   tallyName: { ...type.body, flex: 1 },
