@@ -29,6 +29,7 @@ import {
 } from "../../../../lib/decide";
 import { Button } from "../../../../components/Button";
 import { RestaurantTags } from "../../../../components/RestaurantTags";
+import { Confetti } from "../../../../components/Confetti";
 import { colors, radius, shadow, spacing, type } from "../../../../lib/theme";
 
 const SWIPE_THRESHOLD = 110; // px of horizontal travel to count as a decision
@@ -131,6 +132,18 @@ export default function DecideScreen() {
     () => Math.max(1, ...restaurants.map((r) => tallies[r.id] ?? 0)),
     [restaurants, tallies],
   );
+
+  // Spring "pop" on the winner name when the result appears.
+  const winnerScale = useSharedValue(0.7);
+  useEffect(() => {
+    if (session?.status === "completed") {
+      winnerScale.value = 0.7;
+      winnerScale.value = withSpring(1, { damping: 9, stiffness: 130 });
+    }
+  }, [session?.status, winnerScale]);
+  const winnerNameStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: winnerScale.value }],
+  }));
 
   // Guards against casting two votes for one card: the swipe-fling path calls
   // onSwiped ~180ms after the gesture ends (via runOnJS), so a quick tap on
@@ -267,8 +280,19 @@ export default function DecideScreen() {
       {completed ? (
         // ---- Result view ----
         <View style={styles.resultBox}>
+          <Confetti />
+          <Text style={styles.trophy}>🏆</Text>
           <Text style={styles.resultLabel}>The group picked</Text>
-          <Text style={styles.resultName}>{winner?.name ?? "No winner"}</Text>
+          <Animated.Text style={[styles.resultName, winnerNameStyle]}>
+            {winner?.name ?? "No winner"}
+          </Animated.Text>
+          {winner ? (
+            <RestaurantTags
+              cuisine={winner.cuisine}
+              priceLevel={winner.price_level}
+              style={styles.resultTags}
+            />
+          ) : null}
           {winner?.address ? (
             <Text style={styles.resultSub}>{winner.address}</Text>
           ) : null}
@@ -409,8 +433,10 @@ const styles = StyleSheet.create({
   },
   primaryButton: { marginTop: spacing.sm },
   resultBox: { gap: spacing.sm, alignItems: "center", paddingTop: spacing.lg },
+  trophy: { fontSize: 52 },
   resultLabel: { ...type.label, textTransform: "uppercase", letterSpacing: 1 },
   resultName: { ...type.title, textAlign: "center" },
+  resultTags: { justifyContent: "center" },
   resultSub: { ...type.body, color: colors.inkSecondary, textAlign: "center" },
   error: { color: colors.pass },
 });
