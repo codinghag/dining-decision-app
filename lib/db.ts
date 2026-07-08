@@ -101,6 +101,52 @@ export interface SocialSource {
   source_platform: "instagram" | "tiktok";
 }
 
+// Ensure a restaurants row exists for this place (dedupe on google_place_id
+// when present) and return it, WITHOUT linking it to any collection. Used both
+// by the capture flow and by the wildcard (a surprise restaurant that appears
+// in a Decide deck but is deliberately not saved to the collection).
+export async function ensureRestaurant(
+  place: Partial<Place> & { name: string },
+  social?: SocialSource,
+): Promise<Restaurant> {
+  const userId = await getUserId();
+  if (!userId) throw new Error("Not signed in");
+
+  // Reuse an existing restaurant row when we have a place id (many-to-many:
+  // the same restaurant can appear in multiple collections).
+  if (place.google_place_id) {
+    const { data: existing, error: findErr } = await supabase
+      .from("restaurants")
+      .select("*")
+      .eq("google_place_id", place.google_place_id)
+      .maybeSingle();
+    if (findErr) throw findErr;
+    if (existing) return existing as Restaurant;
+  }
+
+  const { data: inserted, error: insErr } = await supabase
+    .from("restaurants")
+    .insert({
+      google_place_id: place.google_place_id ?? null,
+      name: place.name,
+      address: place.address ?? null,
+      lat: place.lat ?? null,
+      lng: place.lng ?? null,
+      phone: place.phone ?? null,
+      website: place.website ?? null,
+      hours: place.hours ?? null,
+      cuisine: place.cuisine ?? null,
+      price_level: place.price_level ?? null,
+      source_url: social?.source_url ?? null,
+      source_platform: social?.source_platform ?? null,
+      created_by: userId,
+    })
+    .select("*")
+    .single();
+  if (insErr) throw insErr;
+  return inserted as Restaurant;
+}
+
 // Upsert a restaurant (dedupe on google_place_id when present) and link it into
 // the collection, then log the capture event. Shared by all capture flows.
 export async function saveRestaurantToCollection(
@@ -112,43 +158,7 @@ export async function saveRestaurantToCollection(
   const userId = await getUserId();
   if (!userId) throw new Error("Not signed in");
 
-  let restaurant: Restaurant | null = null;
-
-  // Reuse an existing restaurant row when we have a place id (many-to-many:
-  // the same restaurant can appear in multiple collections).
-  if (place.google_place_id) {
-    const { data: existing, error: findErr } = await supabase
-      .from("restaurants")
-      .select("*")
-      .eq("google_place_id", place.google_place_id)
-      .maybeSingle();
-    if (findErr) throw findErr;
-    restaurant = existing as Restaurant | null;
-  }
-
-  if (!restaurant) {
-    const { data: inserted, error: insErr } = await supabase
-      .from("restaurants")
-      .insert({
-        google_place_id: place.google_place_id ?? null,
-        name: place.name,
-        address: place.address ?? null,
-        lat: place.lat ?? null,
-        lng: place.lng ?? null,
-        phone: place.phone ?? null,
-        website: place.website ?? null,
-        hours: place.hours ?? null,
-        cuisine: place.cuisine ?? null,
-        price_level: place.price_level ?? null,
-        source_url: social?.source_url ?? null,
-        source_platform: social?.source_platform ?? null,
-        created_by: userId,
-      })
-      .select("*")
-      .single();
-    if (insErr) throw insErr;
-    restaurant = inserted as Restaurant;
-  }
+  const restaurant = await ensureRestaurant(place, social);
 
   const { error: linkErr } = await supabase
     .from("collection_restaurants")

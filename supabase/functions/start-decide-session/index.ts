@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Not authenticated" }, 401);
     }
 
-    const { collectionId } = await req.json();
+    const { collectionId, wildcardRestaurantId } = await req.json();
     if (!isUuid(collectionId)) {
       return jsonResponse({ error: "collectionId (uuid) is required" }, 400);
     }
@@ -95,6 +95,15 @@ Deno.serve(async (req) => {
       );
     }
     const chosenIds = sample(allIds, Math.min(3, allIds.length));
+
+    // 3b. Optional wildcard: a restaurant the client picked from Google that
+    // isn't necessarily in the collection (a "try somewhere new" surprise).
+    // Append it to the deck. The client already created the restaurants row;
+    // it just isn't in collection_restaurants, so it shows in the deck without
+    // being saved to the collection.
+    if (isUuid(wildcardRestaurantId) && !chosenIds.includes(wildcardRestaurantId)) {
+      chosenIds.push(wildcardRestaurantId);
+    }
 
     // 4. Create the session. A unique partial index on decide_sessions
     // (collection_id) where status='active' backstops the race between our

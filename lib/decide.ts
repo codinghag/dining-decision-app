@@ -76,17 +76,21 @@ export interface StartedSession {
 }
 
 // Start a session (server picks the random 3, notifies other members), then log.
+// An optional wildcardRestaurantId is appended to the deck server-side -- a
+// nearby surprise the client fetched from Google that isn't in the collection.
 export async function startDecideSession(
   collectionId: string,
+  opts?: { wildcardRestaurantId?: string },
 ): Promise<StartedSession> {
   const result = await invokeEdgeFunction<StartedSession>(
     "start-decide-session",
-    { collectionId },
+    { collectionId, wildcardRestaurantId: opts?.wildcardRestaurantId },
   );
   await logEvent("decide_session_started", {
     collection_id: collectionId,
     session_id: result.session.id,
     restaurant_count: result.restaurants.length,
+    wildcard: !!opts?.wildcardRestaurantId,
   });
   return result;
 }

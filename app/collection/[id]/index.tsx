@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import {
   Link,
@@ -9,6 +9,7 @@ import {
 } from "expo-router";
 import {
   deleteCollection,
+  ensureRestaurant,
   getCollection,
   listCollectionRestaurants,
   type Collection,
@@ -17,6 +18,8 @@ import {
 import { getUserId } from "../../../lib/supabase";
 import { shareCollectionInvite } from "../../../lib/invite";
 import { startDecideSession } from "../../../lib/decide";
+import { getCurrentLocation, type Coords } from "../../../lib/location";
+import { pickWildcardPlace } from "../../../lib/wildcard";
 import { ScreenContainer } from "../../../components/ScreenContainer";
 import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
@@ -36,6 +39,11 @@ export default function CollectionDetailScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [wildcard, setWildcard] = useState(false);
+  const [location, setLocation] = useState<Coords | null>(null);
+  useEffect(() => {
+    getCurrentLocation().then(setLocation);
+  }, []);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -76,7 +84,24 @@ export default function CollectionDetailScreen() {
     setDeciding(true);
     setError(null);
     try {
-      const { session } = await startDecideSession(id);
+      let wildcardRestaurantId: string | undefined;
+      if (wildcard && location) {
+        // Best-effort -- a failed/empty wildcard just starts the session
+        // without one, never blocks deciding.
+        try {
+          const excluded = restaurants
+            .map((r) => r.google_place_id)
+            .filter((x): x is string => !!x);
+          const place = await pickWildcardPlace(location, excluded);
+          if (place) {
+            const row = await ensureRestaurant(place);
+            wildcardRestaurantId = row.id;
+          }
+        } catch {
+          // ignore -- proceed without a wildcard
+        }
+      }
+      const { session } = await startDecideSession(id, { wildcardRestaurantId });
       router.push(`/collection/${id}/decide/${session.id}`);
     } catch (e) {
       setError(String(e));
@@ -147,9 +172,24 @@ export default function CollectionDetailScreen() {
         />
       </View>
 
-      <Pressable style={styles.statsLink} onPress={() => router.push(`/collection/${id}/stats`)}>
-        <Text style={styles.statsLinkText}>📊 Group stats</Text>
-      </Pressable>
+      <View style={styles.subRow}>
+        <Pressable
+          style={[styles.wildcardChip, wildcard && styles.wildcardChipActive]}
+          onPress={() => setWildcard((w) => !w)}
+        >
+          <Text style={[styles.wildcardText, wildcard && styles.wildcardTextActive]}>
+            🎲 {wildcard ? "Wildcard on" : "Add a wildcard"}
+          </Text>
+        </Pressable>
+        <Pressable onPress={() => router.push(`/collection/${id}/stats`)}>
+          <Text style={styles.statsLinkText}>📊 Group stats</Text>
+        </Pressable>
+      </View>
+      {wildcard ? (
+        <Text style={styles.wildcardHint}>
+          A surprise nearby spot will join the deck when you decide.
+        </Text>
+      ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -193,7 +233,24 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   headerShare: { color: colors.primary, fontWeight: "600", fontSize: 16 },
   headerDelete: { color: colors.pass, fontWeight: "600", fontSize: 16 },
-  statsLink: { alignItems: "center", paddingVertical: spacing.xs },
+  subRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: spacing.sm,
+  },
+  wildcardChip: {
+    flexDirection: "row",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  wildcardChipActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+  wildcardText: { ...type.label, color: colors.inkSecondary },
+  wildcardTextActive: { color: colors.primaryDark },
+  wildcardHint: { ...type.caption, color: colors.inkTertiary, paddingTop: spacing.xs },
   statsLinkText: { ...type.label, color: colors.primary },
   list: { paddingTop: spacing.base, gap: spacing.sm },
   cardTitle: { ...type.subtitle },
