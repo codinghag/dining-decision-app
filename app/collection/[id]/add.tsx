@@ -15,6 +15,7 @@ import { getCurrentLocation, type Coords } from "../../../lib/location";
 import { TextField } from "../../../components/TextField";
 import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
+import { CuisineBadge } from "../../../components/CuisineBadge";
 import { colors, radius, spacing, type } from "../../../lib/theme";
 
 type Tab = "link" | "search" | "quick_add" | "import";
@@ -43,6 +44,7 @@ export default function AddRestaurantScreen() {
   // Quick-add state
   const [quickName, setQuickName] = useState("");
   const [quickAddress, setQuickAddress] = useState("");
+  const [quickCuisine, setQuickCuisine] = useState("");
 
   // Best-effort device location, fetched once, used to bias Search/Import
   // results toward nearby restaurants. Never blocks the UI -- stays null
@@ -235,6 +237,7 @@ export default function AddRestaurantScreen() {
           {resolved && (
             <Card style={styles.confirm}>
               <Text style={styles.confirmTitle}>{resolved.name}</Text>
+              {resolved.cuisine ? <CuisineBadge cuisine={resolved.cuisine} /> : null}
               {resolved.address ? (
                 <Text style={styles.confirmSub}>{resolved.address}</Text>
               ) : null}
@@ -268,6 +271,7 @@ export default function AddRestaurantScreen() {
             <Pressable key={r.google_place_id} onPress={() => onPickResult(r)}>
               <Card>
                 <Text style={styles.confirmTitle}>{r.name}</Text>
+                {r.cuisine ? <CuisineBadge cuisine={r.cuisine} /> : null}
                 {r.address ? <Text style={styles.confirmSub}>{r.address}</Text> : null}
               </Card>
             </Pressable>
@@ -291,6 +295,11 @@ export default function AddRestaurantScreen() {
             value={quickAddress}
             onChangeText={setQuickAddress}
           />
+          <TextField
+            placeholder="Cuisine, e.g. Thai, Pizza (optional)"
+            value={quickCuisine}
+            onChangeText={setQuickCuisine}
+          />
           <Button
             label="Save to collection"
             loading={busy}
@@ -300,6 +309,7 @@ export default function AddRestaurantScreen() {
                 {
                   name: quickName.trim(),
                   address: quickAddress.trim() || null,
+                  cuisine: quickCuisine.trim() || null,
                 },
                 "quick_add",
               )
@@ -358,6 +368,7 @@ export default function AddRestaurantScreen() {
                       <Pressable key={r.google_place_id} onPress={() => onImportPick(link, r)}>
                         <Card>
                           <Text style={styles.confirmTitle}>{r.name}</Text>
+                          {r.cuisine ? <CuisineBadge cuisine={r.cuisine} /> : null}
                           {r.address ? (
                             <Text style={styles.confirmSub}>{r.address}</Text>
                           ) : null}

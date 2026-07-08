@@ -14,6 +14,7 @@ export interface NormalizedPlace {
   phone: string | null;
   website: string | null;
   hours: unknown | null;
+  cuisine: string | null;
 }
 
 export interface PlaceSearchResult {
@@ -22,6 +23,7 @@ export interface PlaceSearchResult {
   address: string | null;
   lat: number | null;
   lng: number | null;
+  cuisine: string | null;
 }
 
 function apiKey(): string {
@@ -42,6 +44,7 @@ const DETAILS_FIELD_MASK = [
   "nationalPhoneNumber",
   "websiteUri",
   "regularOpeningHours",
+  "primaryTypeDisplayName",
 ].join(",");
 
 // Search field mask — lightweight list for pick-a-result UI.
@@ -50,6 +53,7 @@ const SEARCH_FIELD_MASK = [
   "places.displayName",
   "places.formattedAddress",
   "places.location",
+  "places.primaryTypeDisplayName",
 ].join(",");
 
 // deno-lint-ignore no-explicit-any
@@ -63,6 +67,7 @@ function normalizeDetails(p: any): NormalizedPlace {
     phone: p.internationalPhoneNumber ?? p.nationalPhoneNumber ?? null,
     website: p.websiteUri ?? null,
     hours: p.regularOpeningHours ?? null,
+    cuisine: p.primaryTypeDisplayName?.text ?? null,
   };
 }
 
@@ -125,6 +130,7 @@ export async function searchText(
     address: p.formattedAddress ?? null,
     lat: p.location?.latitude ?? null,
     lng: p.location?.longitude ?? null,
+    cuisine: p.primaryTypeDisplayName?.text ?? null,
   }));
 }
 

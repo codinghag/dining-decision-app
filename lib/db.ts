@@ -19,6 +19,7 @@ export interface Restaurant {
   phone: string | null;
   website: string | null;
   hours: unknown | null;
+  cuisine: string | null;
   source_url: string | null;
   source_platform: "instagram" | "tiktok" | null;
   created_by: string | null;
@@ -136,6 +137,7 @@ export async function saveRestaurantToCollection(
         phone: place.phone ?? null,
         website: place.website ?? null,
         hours: place.hours ?? null,
+        cuisine: place.cuisine ?? null,
         source_url: social?.source_url ?? null,
         source_platform: social?.source_platform ?? null,
         created_by: userId,

@@ -22,6 +22,7 @@ import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
 import { EmptyState } from "../../../components/EmptyState";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { CuisineBadge } from "../../../components/CuisineBadge";
 import { colors, spacing, type } from "../../../lib/theme";
 
 export default function CollectionDetailScreen() {
@@ -161,6 +162,7 @@ export default function CollectionDetailScreen() {
           renderItem={({ item }) => (
             <Card elevated>
               <Text style={styles.cardTitle}>{item.name}</Text>
+              {item.cuisine ? <CuisineBadge cuisine={item.cuisine} /> : null}
               {item.address ? <Text style={styles.cardSub}>{item.address}</Text> : null}
               {item.phone || item.website ? (
                 <View style={styles.cardMetaRow}>
