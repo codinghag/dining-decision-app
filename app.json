@@ -29,8 +29,7 @@
     },
     "plugins": [
       "expo-router",
-      "expo-notifications",
-      "expo-status-bar"
+      "expo-notifications"
     ],
     "extra": {
       "router": {},
