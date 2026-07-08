@@ -8,17 +8,20 @@ import {
   useRouter,
 } from "expo-router";
 import {
+  deleteCollection,
   getCollection,
   listCollectionRestaurants,
   type Collection,
   type Restaurant,
 } from "../../../lib/db";
+import { getUserId } from "../../../lib/supabase";
 import { shareCollectionInvite } from "../../../lib/invite";
 import { startDecideSession } from "../../../lib/decide";
 import { ScreenContainer } from "../../../components/ScreenContainer";
 import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
 import { EmptyState } from "../../../components/EmptyState";
+import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { colors, spacing, type } from "../../../lib/theme";
 
 export default function CollectionDetailScreen() {
@@ -29,17 +32,22 @@ export default function CollectionDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deciding, setDeciding] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
       setError(null);
-      const [c, r] = await Promise.all([
+      const [c, r, uid] = await Promise.all([
         getCollection(id),
         listCollectionRestaurants(id),
+        getUserId(),
       ]);
       setCollection(c);
       setRestaurants(r);
+      setUserId(uid);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -76,7 +84,22 @@ export default function CollectionDetailScreen() {
     }
   }
 
+  async function onConfirmDelete() {
+    if (!id) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteCollection(id);
+      router.replace("/");
+    } catch (e) {
+      setError(String(e));
+      setDeleting(false);
+      setConfirmDeleteVisible(false);
+    }
+  }
+
   const hasRestaurants = restaurants.length > 0;
+  const isOwner = !!userId && !!collection && collection.owner_id === userId;
 
   return (
     <ScreenContainer>
@@ -84,11 +107,29 @@ export default function CollectionDetailScreen() {
         options={{
           title: collection?.name ?? "Collection",
           headerRight: () => (
-            <Pressable onPress={onShare} hitSlop={12}>
-              <Text style={styles.headerShare}>Share</Text>
-            </Pressable>
+            <View style={styles.headerActions}>
+              {isOwner ? (
+                <Pressable onPress={() => setConfirmDeleteVisible(true)} hitSlop={12}>
+                  <Text style={styles.headerDelete}>Delete</Text>
+                </Pressable>
+              ) : null}
+              <Pressable onPress={onShare} hitSlop={12}>
+                <Text style={styles.headerShare}>Share</Text>
+              </Pressable>
+            </View>
           ),
         }}
+      />
+
+      <ConfirmDialog
+        visible={confirmDeleteVisible}
+        title="Delete this collection?"
+        message={`"${collection?.name}" and all its saved restaurants will be gone for everyone in the group. This can't be undone.`}
+        confirmLabel="Delete"
+        destructive
+        loading={deleting}
+        onConfirm={onConfirmDelete}
+        onCancel={() => setConfirmDeleteVisible(false)}
       />
 
       <View style={styles.topRow}>
@@ -143,7 +184,9 @@ export default function CollectionDetailScreen() {
 
 const styles = StyleSheet.create({
   topRow: { flexDirection: "row", gap: spacing.sm },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   headerShare: { color: colors.primary, fontWeight: "600", fontSize: 16 },
+  headerDelete: { color: colors.pass, fontWeight: "600", fontSize: 16 },
   list: { paddingTop: spacing.base, gap: spacing.sm },
   cardTitle: { ...type.subtitle },
   cardSub: { ...type.body, color: colors.inkSecondary },

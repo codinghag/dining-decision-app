@@ -60,6 +60,15 @@ export async function createCollection(name: string): Promise<Collection> {
   return data as Collection;
 }
 
+// Owner-only (enforced by RLS — collections_delete_owner). Cascades to
+// collection_members, collection_restaurants, and decide_sessions/votes,
+// which all reference collections(id) on delete cascade.
+export async function deleteCollection(id: string): Promise<void> {
+  const { error } = await supabase.from("collections").delete().eq("id", id);
+  if (error) throw error;
+  await logEvent("collection_deleted", { collection_id: id });
+}
+
 // Restaurants in a collection, resolved through the join table.
 export async function listCollectionRestaurants(
   collectionId: string,
