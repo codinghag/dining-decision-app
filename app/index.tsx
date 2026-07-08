@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "
 import { Link, useFocusEffect, useRouter } from "expo-router";
 import { createCollection, listCollections, type Collection } from "../lib/db";
 import { getMyDisplayName, setMyDisplayName } from "../lib/profile";
+import { getAuthStatus } from "../lib/auth";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { TextField } from "../components/TextField";
 import { Button } from "../components/Button";
@@ -22,13 +23,19 @@ export default function CollectionsScreen() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const [syncEmail, setSyncEmail] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [data, myName] = await Promise.all([listCollections(), getMyDisplayName()]);
+      const [data, myName, auth] = await Promise.all([
+        listCollections(),
+        getMyDisplayName(),
+        getAuthStatus(),
+      ]);
       setCollections(data);
       setDisplayName(myName);
+      setSyncEmail(auth.email);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -111,6 +118,12 @@ export default function CollectionsScreen() {
         ) : null}
       </View>
 
+      <Pressable style={styles.syncRow} onPress={() => router.push("/sync")}>
+        <Text style={[styles.syncText, syncEmail ? styles.syncTextMuted : null]}>
+          {syncEmail ? `☁️ Synced · ${syncEmail}` : "☁️ Sync across devices"}
+        </Text>
+      </Pressable>
+
       <View style={styles.createRow}>
         <TextField
           style={styles.input}
@@ -159,6 +172,9 @@ const styles = StyleSheet.create({
   },
   identityText: { ...type.subtitle },
   identityEditLink: { ...type.label, color: colors.primary },
+  syncRow: { paddingBottom: spacing.sm },
+  syncText: { ...type.label, color: colors.primary },
+  syncTextMuted: { color: colors.inkTertiary },
   createRow: { flexDirection: "row", gap: spacing.sm },
   input: { flex: 1 },
   list: { paddingTop: spacing.base, gap: spacing.sm },

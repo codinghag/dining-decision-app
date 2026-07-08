@@ -55,6 +55,7 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" options={{ title: "Collections" }} />
+          <Stack.Screen name="sync" options={{ title: "Sync" }} />
           <Stack.Screen
             name="collection/[id]/index"
             options={{ title: "Collection" }}
