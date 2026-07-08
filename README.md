@@ -104,5 +104,22 @@ supabase/
   multi-axis reviews, visit-purpose tagging, "date invitation" AI pickup lines,
   calendar sync.
 
-This phase deliberately keeps the UI functional but unpolished — it is
-validating data flow, not visual design.
+## Web deployment
+
+The web build is deployed to GitHub Pages: https://codinghag.github.io/dining-decision-app/
+
+To redeploy after making changes:
+
+```bash
+# 1. Temporarily add a base path for the GitHub Pages subpath (do not commit this):
+#    add "experiments": { "baseUrl": "/dining-decision-app" } under "expo" in app.json
+npx expo export -p web
+git checkout -- app.json   # revert the temporary baseUrl change
+cp dist/index.html dist/404.html   # SPA fallback so client-side routes work on refresh
+npm run deploy
+```
+
+`scripts/gh-pages-before-add.js` strips a stray `.gitignore` that gh-pages'
+temp clone otherwise inherits from this repo — without it, any asset path
+containing `node_modules` (Metro names some web asset chunks after their
+source module path) gets silently dropped from the deploy.

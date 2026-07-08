@@ -28,13 +28,15 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.10",
+    "gh-pages": "^6.3.0",
     "typescript": "~5.9.2"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "deploy": "gh-pages --nojekyll -d dist --before-add scripts/gh-pages-before-add.js"
   },
   "private": true
 }
