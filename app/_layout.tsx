@@ -64,6 +64,10 @@ export default function RootLayout() {
             options={{ title: "Add Restaurant", presentation: "modal" }}
           />
           <Stack.Screen
+            name="collection/[id]/stats"
+            options={{ title: "Group Stats" }}
+          />
+          <Stack.Screen
             name="collection/[id]/join"
             options={{ title: "Joining…" }}
           />

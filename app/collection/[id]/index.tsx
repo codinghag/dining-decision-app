@@ -147,6 +147,10 @@ export default function CollectionDetailScreen() {
         />
       </View>
 
+      <Pressable style={styles.statsLink} onPress={() => router.push(`/collection/${id}/stats`)}>
+        <Text style={styles.statsLinkText}>📊 Group stats</Text>
+      </Pressable>
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {loading ? (
@@ -189,6 +193,8 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   headerShare: { color: colors.primary, fontWeight: "600", fontSize: 16 },
   headerDelete: { color: colors.pass, fontWeight: "600", fontSize: 16 },
+  statsLink: { alignItems: "center", paddingVertical: spacing.xs },
+  statsLinkText: { ...type.label, color: colors.primary },
   list: { paddingTop: spacing.base, gap: spacing.sm },
   cardTitle: { ...type.subtitle },
   cardSub: { ...type.body, color: colors.inkSecondary },

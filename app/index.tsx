@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Link, useFocusEffect, useRouter } from "expo-router";
 import { createCollection, listCollections, type Collection } from "../lib/db";
+import { getMyDisplayName, setMyDisplayName } from "../lib/profile";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { TextField } from "../components/TextField";
 import { Button } from "../components/Button";
@@ -16,17 +17,40 @@ export default function CollectionsScreen() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Display name (for group stats / who-voted). Anonymous until set.
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
   const load = useCallback(async () => {
     try {
       setError(null);
-      const data = await listCollections();
+      const [data, myName] = await Promise.all([listCollections(), getMyDisplayName()]);
       setCollections(data);
+      setDisplayName(myName);
     } catch (e) {
       setError(String(e));
     } finally {
       setLoading(false);
     }
   }, []);
+
+  async function onSaveName() {
+    const trimmed = nameInput.trim();
+    if (!trimmed) return;
+    setSavingName(true);
+    setError(null);
+    try {
+      await setMyDisplayName(trimmed);
+      setDisplayName(trimmed);
+      setEditingName(false);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   // Reload whenever the screen regains focus (e.g. after creating in a detail).
   useFocusEffect(
@@ -54,6 +78,39 @@ export default function CollectionsScreen() {
 
   return (
     <ScreenContainer>
+      <View style={styles.identity}>
+        {editingName || (!displayName && !loading) ? (
+          <View style={styles.createRow}>
+            <TextField
+              style={styles.input}
+              placeholder="Your name"
+              value={nameInput}
+              onChangeText={setNameInput}
+              onSubmitEditing={onSaveName}
+              returnKeyType="done"
+              autoFocus={editingName}
+            />
+            <Button
+              label="Save"
+              loading={savingName}
+              onPress={onSaveName}
+              disabled={!nameInput.trim()}
+            />
+          </View>
+        ) : displayName ? (
+          <Pressable
+            style={styles.identityRow}
+            onPress={() => {
+              setNameInput(displayName);
+              setEditingName(true);
+            }}
+          >
+            <Text style={styles.identityText}>👤 {displayName}</Text>
+            <Text style={styles.identityEditLink}>Edit</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
       <View style={styles.createRow}>
         <TextField
           style={styles.input}
@@ -93,6 +150,15 @@ export default function CollectionsScreen() {
 }
 
 const styles = StyleSheet.create({
+  identity: { marginBottom: spacing.sm },
+  identityRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: spacing.xs,
+  },
+  identityText: { ...type.subtitle },
+  identityEditLink: { ...type.label, color: colors.primary },
   createRow: { flexDirection: "row", gap: spacing.sm },
   input: { flex: 1 },
   list: { paddingTop: spacing.base, gap: spacing.sm },
