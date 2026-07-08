@@ -7,6 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ensureAnonymousSession } from "../lib/supabase";
 import { logEvent } from "../lib/analytics";
 import { registerPushToken } from "../lib/push";
+import { colors, type } from "../lib/theme";
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -32,7 +33,8 @@ export default function RootLayout() {
   if (!ready) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" />
+        <Text style={styles.loadingLogo}>🍽️</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Starting up…</Text>
       </View>
     );
@@ -42,7 +44,15 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerStyle: { backgroundColor: "#fff" } }}>
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.ink,
+            headerTitleStyle: { fontWeight: "700" },
+            headerShadowVisible: false,
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        >
           <Stack.Screen name="index" options={{ title: "Collections" }} />
           <Stack.Screen
             name="collection/[id]/index"
@@ -71,8 +81,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
     gap: 12,
   },
-  loadingText: { color: "#666" },
+  loadingLogo: { fontSize: 44, marginBottom: 4 },
+  loadingText: { ...type.body, color: colors.inkSecondary },
 });

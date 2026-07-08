@@ -1,12 +1,5 @@
 import { useCallback, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import {
   Link,
   Stack,
@@ -22,6 +15,11 @@ import {
 } from "../../../lib/db";
 import { shareCollectionInvite } from "../../../lib/invite";
 import { startDecideSession } from "../../../lib/decide";
+import { ScreenContainer } from "../../../components/ScreenContainer";
+import { Button } from "../../../components/Button";
+import { Card } from "../../../components/Card";
+import { EmptyState } from "../../../components/EmptyState";
+import { colors, spacing, type } from "../../../lib/theme";
 
 export default function CollectionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -81,7 +79,7 @@ export default function CollectionDetailScreen() {
   const hasRestaurants = restaurants.length > 0;
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <Stack.Screen
         options={{
           title: collection?.name ?? "Collection",
@@ -95,96 +93,61 @@ export default function CollectionDetailScreen() {
 
       <View style={styles.topRow}>
         <Link href={`/collection/${id}/add`} asChild>
-          <Pressable style={[styles.addButton, styles.flex1]}>
-            <Text style={styles.addButtonText}>+ Add Restaurant</Text>
-          </Pressable>
+          <Button label="+ Add Restaurant" flex />
         </Link>
-        <Pressable
-          style={[
-            styles.decideButton,
-            styles.flex1,
-            (!hasRestaurants || deciding) && styles.buttonDisabled,
-          ]}
+        <Button
+          label="Let's Decide"
+          variant="dark"
+          flex
+          loading={deciding}
+          disabled={!hasRestaurants}
           onPress={onDecide}
-          disabled={!hasRestaurants || deciding}
-        >
-          <Text style={styles.decideButtonText}>
-            {deciding ? "Starting…" : "Let's Decide"}
-          </Text>
-        </Pressable>
+        />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 24 }} />
+        <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
       ) : (
         <FlatList
           data={restaurants}
           keyExtractor={(r) => r.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text style={styles.empty}>
-              No restaurants yet. Add one to build this collection.
-            </Text>
+            <EmptyState message="No restaurants yet. Add one to build this collection." />
           }
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <Card elevated>
               <Text style={styles.cardTitle}>{item.name}</Text>
-              {item.address ? (
-                <Text style={styles.cardSub}>{item.address}</Text>
+              {item.address ? <Text style={styles.cardSub}>{item.address}</Text> : null}
+              {item.phone || item.website ? (
+                <View style={styles.cardMetaRow}>
+                  {item.phone ? (
+                    <Text style={styles.cardMeta}>📞 {item.phone}</Text>
+                  ) : null}
+                  {item.website ? (
+                    <Text style={styles.cardMeta} numberOfLines={1}>
+                      🌐 {item.website}
+                    </Text>
+                  ) : null}
+                </View>
               ) : null}
-              <View style={styles.cardMetaRow}>
-                {item.phone ? (
-                  <Text style={styles.cardMeta}>{item.phone}</Text>
-                ) : null}
-                {item.website ? (
-                  <Text style={styles.cardMeta} numberOfLines={1}>
-                    {item.website}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
+            </Card>
           )}
         />
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 16 },
-  topRow: { flexDirection: "row", gap: 8 },
-  flex1: { flex: 1 },
-  addButton: {
-    backgroundColor: "#1f6feb",
-    borderRadius: 8,
-    padding: 14,
-    alignItems: "center",
-  },
-  addButtonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
-  decideButton: {
-    backgroundColor: "#111",
-    borderRadius: 8,
-    padding: 14,
-    alignItems: "center",
-  },
-  decideButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  buttonDisabled: { opacity: 0.4 },
-  headerShare: { color: "#1f6feb", fontWeight: "600", fontSize: 16 },
-  list: { paddingTop: 16, gap: 8 },
-  card: {
-    borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 10,
-    padding: 14,
-    backgroundColor: "#fafafa",
-    gap: 4,
-  },
-  cardTitle: { fontSize: 16, fontWeight: "600" },
-  cardSub: { color: "#555" },
-  cardMetaRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
-  cardMeta: { color: "#888", fontSize: 12 },
-  empty: { color: "#888", textAlign: "center", marginTop: 32 },
-  error: { color: "#c00", marginTop: 8 },
+  topRow: { flexDirection: "row", gap: spacing.sm },
+  headerShare: { color: colors.primary, fontWeight: "600", fontSize: 16 },
+  list: { paddingTop: spacing.base, gap: spacing.sm },
+  cardTitle: { ...type.subtitle },
+  cardSub: { ...type.body, color: colors.inkSecondary },
+  cardMetaRow: { flexDirection: "row", gap: spacing.md, flexWrap: "wrap", marginTop: spacing.xs },
+  cardMeta: { ...type.caption },
+  error: { color: colors.pass, marginTop: spacing.sm },
 });

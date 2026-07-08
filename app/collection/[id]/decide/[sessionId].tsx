@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -28,6 +27,8 @@ import {
   type DecideSession,
   type Vote,
 } from "../../../../lib/decide";
+import { Button } from "../../../../components/Button";
+import { colors, radius, shadow, spacing, type } from "../../../../lib/theme";
 
 const SWIPE_THRESHOLD = 110; // px of horizontal travel to count as a decision
 
@@ -125,6 +126,10 @@ export default function DecideScreen() {
   }, [sessionId]);
 
   const tallies = useMemo(() => tallyYesVotes(votes), [votes]);
+  const maxTally = useMemo(
+    () => Math.max(1, ...restaurants.map((r) => tallies[r.id] ?? 0)),
+    [restaurants, tallies],
+  );
 
   // Guards against casting two votes for one card: the swipe-fling path calls
   // onSwiped ~180ms after the gesture ends (via runOnJS), so a quick tap on
@@ -219,11 +224,29 @@ export default function DecideScreen() {
     voteCurrentCard(vote);
   }
 
+  function renderTallies() {
+    return restaurants.map((r) => {
+      const count = tallies[r.id] ?? 0;
+      const pct = Math.round((count / maxTally) * 100);
+      return (
+        <View key={r.id} style={styles.tallyRow}>
+          <View style={styles.tallyHeader}>
+            <Text style={styles.tallyName}>{r.name}</Text>
+            <Text style={styles.tallyCount}>{count} in</Text>
+          </View>
+          <View style={styles.tallyTrack}>
+            <View style={[styles.tallyFill, { width: `${pct}%` }]} />
+          </View>
+        </View>
+      );
+    });
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
         <Stack.Screen options={{ title: "Decide" }} />
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -248,20 +271,12 @@ export default function DecideScreen() {
           {winner?.address ? (
             <Text style={styles.resultSub}>{winner.address}</Text>
           ) : null}
-          <View style={styles.tallies}>
-            {restaurants.map((r) => (
-              <View key={r.id} style={styles.tallyRow}>
-                <Text style={styles.tallyName}>{r.name}</Text>
-                <Text style={styles.tallyCount}>{tallies[r.id] ?? 0} in</Text>
-              </View>
-            ))}
-          </View>
-          <Pressable
+          <View style={styles.tallies}>{renderTallies()}</View>
+          <Button
+            label="Back to collection"
             style={styles.primaryButton}
             onPress={() => router.replace(`/collection/${collectionId}`)}
-          >
-            <Text style={styles.primaryButtonText}>Back to collection</Text>
-          </Pressable>
+          />
         </View>
       ) : (
         // ---- Voting view ----
@@ -297,41 +312,28 @@ export default function DecideScreen() {
 
           {!doneVoting ? (
             <View style={styles.voteButtons}>
-              <Pressable
-                style={[styles.voteButton, styles.passButton]}
+              <Button
+                label="Pass"
+                variant="danger-outline"
+                flex
                 onPress={() => buttonVote(false)}
-              >
-                <Text style={styles.passButtonText}>Pass</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.voteButton, styles.inButton]}
-                onPress={() => buttonVote(true)}
-              >
-                <Text style={styles.inButtonText}>In</Text>
-              </Pressable>
+              />
+              <Button label="In" variant="primary" flex onPress={() => buttonVote(true)} />
             </View>
           ) : null}
 
           {/* Live tallies from all members */}
           <View style={styles.tallies}>
             <Text style={styles.talliesTitle}>Live votes</Text>
-            {restaurants.map((r) => (
-              <View key={r.id} style={styles.tallyRow}>
-                <Text style={styles.tallyName}>{r.name}</Text>
-                <Text style={styles.tallyCount}>{tallies[r.id] ?? 0} in</Text>
-              </View>
-            ))}
+            {renderTallies()}
           </View>
 
-          <Pressable
-            style={[styles.finishButton, finishing && styles.buttonDisabled]}
+          <Button
+            label={finishing ? "Finishing…" : "Finish & see result"}
+            variant="dark"
+            loading={finishing}
             onPress={onFinish}
-            disabled={finishing}
-          >
-            <Text style={styles.finishButtonText}>
-              {finishing ? "Finishing…" : "Finish & see result"}
-            </Text>
-          </Pressable>
+          />
         </>
       )}
     </View>
@@ -339,89 +341,69 @@ export default function DecideScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 16, gap: 16 },
+  container: { flex: 1, backgroundColor: colors.background, padding: spacing.base, gap: spacing.base },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   deck: { height: 260, alignItems: "center", justifyContent: "center" },
   card: {
     width: "100%",
     height: 240,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#e5e5e5",
-    backgroundColor: "#fafafa",
-    padding: 24,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    boxShadow: shadow.raised,
   },
-  cardName: { fontSize: 24, fontWeight: "700", textAlign: "center" },
-  cardAddress: { color: "#666", textAlign: "center" },
-  cardHint: { color: "#aaa", fontSize: 12, marginTop: 8 },
+  cardName: { ...type.heading, fontSize: 24, textAlign: "center" },
+  cardAddress: { ...type.body, color: colors.inkSecondary, textAlign: "center" },
+  cardHint: { ...type.caption, marginTop: spacing.sm },
   stamp: {
     position: "absolute",
     top: 20,
     borderWidth: 3,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
     paddingVertical: 4,
   },
-  stampYes: { right: 20, borderColor: "#2ecc71", transform: [{ rotate: "12deg" }] },
-  stampYesText: { color: "#2ecc71", fontWeight: "800", fontSize: 24 },
-  stampPass: { left: 20, borderColor: "#e74c3c", transform: [{ rotate: "-12deg" }] },
-  stampPassText: { color: "#e74c3c", fontWeight: "800", fontSize: 24 },
+  stampYes: { right: 20, borderColor: colors.yes, transform: [{ rotate: "12deg" }] },
+  stampYesText: { color: colors.yes, fontWeight: "800", fontSize: 24 },
+  stampPass: { left: 20, borderColor: colors.pass, transform: [{ rotate: "-12deg" }] },
+  stampPassText: { color: colors.pass, fontWeight: "800", fontSize: 24 },
   emptyDeck: {
-    padding: 24,
+    padding: spacing.lg,
     alignItems: "center",
   },
-  emptyDeckText: { color: "#888", textAlign: "center", fontSize: 15 },
-  voteButtons: { flexDirection: "row", gap: 12, justifyContent: "center" },
-  voteButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: "center",
-    borderWidth: 1,
-  },
-  passButton: { borderColor: "#e74c3c", backgroundColor: "#fff" },
-  passButtonText: { color: "#e74c3c", fontWeight: "700", fontSize: 16 },
-  inButton: { borderColor: "#2ecc71", backgroundColor: "#2ecc71" },
-  inButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  emptyDeckText: { ...type.body, color: colors.inkTertiary, textAlign: "center" },
+  voteButtons: { flexDirection: "row", gap: spacing.md, justifyContent: "center" },
   tallies: {
     borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 10,
-    padding: 12,
-    gap: 6,
-    backgroundColor: "#fafafa",
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceMuted,
   },
-  talliesTitle: { fontWeight: "600", color: "#444", marginBottom: 2 },
-  tallyRow: { flexDirection: "row", justifyContent: "space-between" },
-  tallyName: { color: "#333", flex: 1 },
-  tallyCount: { color: "#1f6feb", fontWeight: "600" },
-  finishButton: {
-    backgroundColor: "#111",
-    borderRadius: 10,
-    padding: 16,
-    alignItems: "center",
+  talliesTitle: { ...type.label, marginBottom: 2 },
+  tallyRow: { gap: 4 },
+  tallyHeader: { flexDirection: "row", justifyContent: "space-between" },
+  tallyName: { ...type.body, flex: 1 },
+  tallyCount: { color: colors.primary, fontWeight: "700" },
+  tallyTrack: {
+    height: 6,
+    borderRadius: radius.full,
+    backgroundColor: colors.border,
+    overflow: "hidden",
   },
-  finishButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  buttonDisabled: { opacity: 0.5 },
-  primaryButton: {
-    backgroundColor: "#1f6feb",
-    borderRadius: 10,
-    padding: 14,
-    alignItems: "center",
-    marginTop: 8,
+  tallyFill: {
+    height: "100%",
+    borderRadius: radius.full,
+    backgroundColor: colors.yes,
   },
-  primaryButtonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
-  resultBox: { gap: 8, alignItems: "center", paddingTop: 24 },
-  resultLabel: { color: "#888", textTransform: "uppercase", letterSpacing: 1 },
-  resultName: { fontSize: 28, fontWeight: "800", textAlign: "center" },
-  resultSub: { color: "#666", textAlign: "center" },
-  error: { color: "#c00" },
+  primaryButton: { marginTop: spacing.sm },
+  resultBox: { gap: spacing.sm, alignItems: "center", paddingTop: spacing.lg },
+  resultLabel: { ...type.label, textTransform: "uppercase", letterSpacing: 1 },
+  resultName: { ...type.title, textAlign: "center" },
+  resultSub: { ...type.body, color: colors.inkSecondary, textAlign: "center" },
+  error: { color: colors.pass },
 });

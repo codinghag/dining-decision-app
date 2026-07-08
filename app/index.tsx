@@ -1,15 +1,12 @@
 import { useCallback, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Link, useFocusEffect, useRouter } from "expo-router";
 import { createCollection, listCollections, type Collection } from "../lib/db";
+import { ScreenContainer } from "../components/ScreenContainer";
+import { TextField } from "../components/TextField";
+import { Button } from "../components/Button";
+import { EmptyState } from "../components/EmptyState";
+import { colors, radius, shadow, spacing, type } from "../lib/theme";
 
 export default function CollectionsScreen() {
   const router = useRouter();
@@ -56,9 +53,9 @@ export default function CollectionsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       <View style={styles.createRow}>
-        <TextInput
+        <TextField
           style={styles.input}
           placeholder="New collection name"
           value={name}
@@ -66,28 +63,20 @@ export default function CollectionsScreen() {
           onSubmitEditing={onCreate}
           returnKeyType="done"
         />
-        <Pressable
-          style={[styles.button, creating && styles.buttonDisabled]}
-          onPress={onCreate}
-          disabled={creating}
-        >
-          <Text style={styles.buttonText}>{creating ? "…" : "Create"}</Text>
-        </Pressable>
+        <Button label="Create" loading={creating} onPress={onCreate} disabled={!name.trim()} />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 24 }} />
+        <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
       ) : (
         <FlatList
           data={collections}
           keyExtractor={(c) => c.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text style={styles.empty}>
-              No collections yet. Create one above to get started.
-            </Text>
+            <EmptyState message="No collections yet. Create one above to get started." />
           }
           renderItem={({ item }) => (
             <Link href={`/collection/${item.id}`} asChild>
@@ -99,43 +88,24 @@ export default function CollectionsScreen() {
           )}
         />
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 16 },
-  createRow: { flexDirection: "row", gap: 8 },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: "#1f6feb",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    justifyContent: "center",
-  },
-  buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: "#fff", fontWeight: "600" },
-  list: { paddingTop: 16, gap: 8 },
+  createRow: { flexDirection: "row", gap: spacing.sm },
+  input: { flex: 1 },
+  list: { paddingTop: spacing.base, gap: spacing.sm },
   row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 10,
-    backgroundColor: "#fafafa",
+    padding: spacing.base,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    boxShadow: shadow.card,
   },
-  rowTitle: { fontSize: 16, fontWeight: "500" },
-  rowChevron: { fontSize: 22, color: "#bbb" },
-  empty: { color: "#888", textAlign: "center", marginTop: 32 },
-  error: { color: "#c00", marginTop: 8 },
+  rowTitle: { ...type.subtitle },
+  rowChevron: { fontSize: 22, color: colors.inkTertiary },
+  error: { color: colors.pass, marginTop: spacing.sm },
 });

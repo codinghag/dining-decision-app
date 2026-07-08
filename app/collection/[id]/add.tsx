@@ -1,13 +1,5 @@
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   getPlaceDetails,
@@ -17,6 +9,10 @@ import {
   type PlaceSearchResult,
 } from "../../../lib/places";
 import { saveRestaurantToCollection, type CaptureMethod } from "../../../lib/db";
+import { TextField } from "../../../components/TextField";
+import { Button } from "../../../components/Button";
+import { Card } from "../../../components/Card";
+import { colors, radius, spacing, type } from "../../../lib/theme";
 
 type Tab = "link" | "search" | "quick_add";
 
@@ -134,7 +130,7 @@ export default function AddRestaurantScreen() {
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {busy ? <ActivityIndicator style={{ marginVertical: 12 }} /> : null}
+      {busy ? <ActivityIndicator style={{ marginVertical: 12 }} color={colors.primary} /> : null}
 
       {/* --- Paste a Google Maps link --- */}
       {tab === "link" && (
@@ -142,36 +138,27 @@ export default function AddRestaurantScreen() {
           <Text style={styles.help}>
             Paste a Google Maps link (including maps.app.goo.gl short links).
           </Text>
-          <TextInput
-            style={styles.input}
+          <TextField
             placeholder="https://maps.app.goo.gl/…"
             value={link}
             onChangeText={setLink}
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <Pressable
-            style={[styles.button, busy && styles.buttonDisabled]}
-            onPress={onResolveLink}
-            disabled={busy}
-          >
-            <Text style={styles.buttonText}>Resolve</Text>
-          </Pressable>
+          <Button label="Resolve" loading={busy} onPress={onResolveLink} />
 
           {resolved && (
-            <View style={styles.confirm}>
+            <Card style={styles.confirm}>
               <Text style={styles.confirmTitle}>{resolved.name}</Text>
               {resolved.address ? (
                 <Text style={styles.confirmSub}>{resolved.address}</Text>
               ) : null}
-              <Pressable
-                style={[styles.button, busy && styles.buttonDisabled]}
+              <Button
+                label="Save to collection"
+                loading={busy}
                 onPress={() => save(resolved, "link")}
-                disabled={busy}
-              >
-                <Text style={styles.buttonText}>Save to collection</Text>
-              </Pressable>
-            </View>
+              />
+            </Card>
           )}
         </View>
       )}
@@ -181,33 +168,23 @@ export default function AddRestaurantScreen() {
         <View style={styles.section}>
           <Text style={styles.help}>Search for a restaurant by name.</Text>
           <View style={styles.searchRow}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
+            <TextField
+              style={styles.searchInput}
               placeholder="e.g. Blue Bottle Coffee"
               value={query}
               onChangeText={setQuery}
               onSubmitEditing={onSearch}
               returnKeyType="search"
             />
-            <Pressable
-              style={[styles.button, busy && styles.buttonDisabled]}
-              onPress={onSearch}
-              disabled={busy}
-            >
-              <Text style={styles.buttonText}>Go</Text>
-            </Pressable>
+            <Button label="Go" loading={busy} onPress={onSearch} />
           </View>
 
           {results.map((r) => (
-            <Pressable
-              key={r.google_place_id}
-              style={styles.result}
-              onPress={() => onPickResult(r)}
-            >
-              <Text style={styles.confirmTitle}>{r.name}</Text>
-              {r.address ? (
-                <Text style={styles.confirmSub}>{r.address}</Text>
-              ) : null}
+            <Pressable key={r.google_place_id} onPress={() => onPickResult(r)}>
+              <Card>
+                <Text style={styles.confirmTitle}>{r.name}</Text>
+                {r.address ? <Text style={styles.confirmSub}>{r.address}</Text> : null}
+              </Card>
             </Pressable>
           ))}
         </View>
@@ -219,23 +196,20 @@ export default function AddRestaurantScreen() {
           <Text style={styles.help}>
             Can’t find it? Add it manually. Only a name is required.
           </Text>
-          <TextInput
-            style={styles.input}
+          <TextField
             placeholder="Restaurant name"
             value={quickName}
             onChangeText={setQuickName}
           />
-          <TextInput
-            style={styles.input}
+          <TextField
             placeholder="Address (optional)"
             value={quickAddress}
             onChangeText={setQuickAddress}
           />
-          <Pressable
-            style={[
-              styles.button,
-              (busy || !quickName.trim()) && styles.buttonDisabled,
-            ]}
+          <Button
+            label="Save to collection"
+            loading={busy}
+            disabled={!quickName.trim()}
             onPress={() =>
               save(
                 {
@@ -245,10 +219,7 @@ export default function AddRestaurantScreen() {
                 "quick_add",
               )
             }
-            disabled={busy || !quickName.trim()}
-          >
-            <Text style={styles.buttonText}>Save to collection</Text>
-          </Pressable>
+          />
         </View>
       )}
     </ScrollView>
@@ -256,56 +227,24 @@ export default function AddRestaurantScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  content: { padding: 16, gap: 12 },
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.base, gap: spacing.md },
   tabs: {
     flexDirection: "row",
-    backgroundColor: "#f0f0f0",
-    borderRadius: 10,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.md,
     padding: 4,
   },
-  tab: { flex: 1, paddingVertical: 8, alignItems: "center", borderRadius: 8 },
-  tabActive: { backgroundColor: "#fff" },
-  tabText: { color: "#666", fontWeight: "500" },
-  tabTextActive: { color: "#1f6feb" },
-  section: { gap: 10 },
-  help: { color: "#666" },
-  searchRow: { flexDirection: "row", gap: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: "#1f6feb",
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: "#fff", fontWeight: "600" },
-  confirm: {
-    borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 10,
-    padding: 14,
-    gap: 8,
-    backgroundColor: "#fafafa",
-  },
-  confirmTitle: { fontSize: 16, fontWeight: "600" },
-  confirmSub: { color: "#555" },
-  result: {
-    borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 10,
-    padding: 14,
-    gap: 4,
-    backgroundColor: "#fafafa",
-  },
-  error: { color: "#c00" },
+  tab: { flex: 1, paddingVertical: spacing.sm, alignItems: "center", borderRadius: radius.sm },
+  tabActive: { backgroundColor: colors.surface, boxShadow: "0px 1px 4px rgba(36,31,27,0.08)" },
+  tabText: { ...type.label },
+  tabTextActive: { color: colors.primary },
+  section: { gap: spacing.md },
+  help: { ...type.caption, color: colors.inkSecondary },
+  searchRow: { flexDirection: "row", gap: spacing.sm },
+  searchInput: { flex: 1 },
+  confirm: { gap: spacing.sm, marginTop: spacing.xs },
+  confirmTitle: { ...type.subtitle },
+  confirmSub: { ...type.body, color: colors.inkSecondary },
+  error: { color: colors.pass },
 });

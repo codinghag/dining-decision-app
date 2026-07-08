@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { joinCollection } from "../../../lib/decide";
+import { Button } from "../../../components/Button";
+import { colors, spacing, type } from "../../../lib/theme";
 
 // Invite landing screen. Reached by opening a collection's share link
 // (/collection/<id>/join). Calls the join-collection edge function (which
@@ -45,21 +41,21 @@ export default function JoinCollectionScreen() {
       <Stack.Screen options={{ title: "Joining…" }} />
       {error ? (
         <>
+          <Text style={styles.icon}>😕</Text>
           <Text style={styles.error}>Couldn't join this collection.</Text>
           <Text style={styles.errorDetail}>{error}</Text>
-          <Pressable
-            style={styles.button}
+          <Button
+            label="Try again"
             onPress={() => {
               startedRef.current = false;
               join();
             }}
-          >
-            <Text style={styles.buttonText}>Try again</Text>
-          </Pressable>
+          />
         </>
       ) : (
         <>
-          <ActivityIndicator size="large" />
+          <Text style={styles.icon}>🍽️</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.text}>
             {name ? `Joining "${name}"…` : "Joining collection…"}
           </Text>
@@ -74,19 +70,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff",
-    padding: 24,
-    gap: 12,
+    backgroundColor: colors.background,
+    padding: spacing.lg,
+    gap: spacing.md,
   },
-  text: { color: "#666" },
-  error: { color: "#c00", fontWeight: "600", fontSize: 16 },
-  errorDetail: { color: "#999", textAlign: "center" },
-  button: {
-    backgroundColor: "#1f6feb",
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginTop: 8,
-  },
-  buttonText: { color: "#fff", fontWeight: "600" },
+  icon: { fontSize: 40 },
+  text: { ...type.body, color: colors.inkSecondary },
+  error: { ...type.heading, color: colors.pass },
+  errorDetail: { ...type.caption, textAlign: "center" },
 });
