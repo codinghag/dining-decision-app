@@ -33,6 +33,14 @@ import { Confetti } from "../../../../components/Confetti";
 import { colors, radius, shadow, spacing, type } from "../../../../lib/theme";
 
 const SWIPE_THRESHOLD = 110; // px of horizontal travel to count as a decision
+const DECIDE_DURATION_MS = 60_000; // each session runs 60s, then auto-finishes
+
+function formatCountdown(ms: number): string {
+  const totalSec = Math.ceil(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 export default function DecideScreen() {
   const { id: collectionId, sessionId } = useLocalSearchParams<{
@@ -218,7 +226,7 @@ export default function DecideScreen() {
     opacity: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0]),
   }));
 
-  async function onFinish() {
+  const onFinish = useCallback(async () => {
     if (!sessionId) return;
     setFinishing(true);
     setError(null);
@@ -231,7 +239,38 @@ export default function DecideScreen() {
     } finally {
       setFinishing(false);
     }
-  }
+  }, [sessionId]);
+
+  // --- Countdown timer -----------------------------------------------------
+  // All members share the session's server created_at, so a deadline derived
+  // from it keeps every client's countdown in sync without any extra state.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (session?.status !== "active") return;
+    const t = setInterval(() => setNowMs(Date.now()), 500);
+    return () => clearInterval(t);
+  }, [session?.status]);
+
+  const deadlineMs = session
+    ? new Date(session.created_at).getTime() + DECIDE_DURATION_MS
+    : 0;
+  const remainingMs = Math.max(0, deadlineMs - nowMs);
+
+  // When the clock runs out, whichever client reaches zero first completes the
+  // session (the RPC is idempotent); realtime flips everyone to the result.
+  const autoFinishedRef = useRef(false);
+  useEffect(() => {
+    if (
+      session?.status === "active" &&
+      deadlineMs > 0 &&
+      remainingMs === 0 &&
+      !autoFinishedRef.current &&
+      !finishing
+    ) {
+      autoFinishedRef.current = true;
+      onFinish();
+    }
+  }, [session?.status, deadlineMs, remainingMs, finishing, onFinish]);
 
   // Tap fallback (also useful on web where a drag gesture is awkward).
   function buttonVote(vote: boolean) {
@@ -306,6 +345,14 @@ export default function DecideScreen() {
       ) : (
         // ---- Voting view ----
         <>
+          <View style={styles.timerRow}>
+            <View style={[styles.timer, remainingMs <= 10_000 && styles.timerUrgent]}>
+              <Text style={[styles.timerText, remainingMs <= 10_000 && styles.timerTextUrgent]}>
+                ⏱ {formatCountdown(remainingMs)}
+              </Text>
+            </View>
+          </View>
+
           <View style={styles.deck}>
             {doneVoting ? (
               <View style={styles.emptyDeck}>
@@ -373,6 +420,18 @@ export default function DecideScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, padding: spacing.base, gap: spacing.base },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  timerRow: { alignItems: "center" },
+  timer: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  timerUrgent: { backgroundColor: colors.passLight, borderColor: colors.pass },
+  timerText: { ...type.subtitle, color: colors.inkSecondary },
+  timerTextUrgent: { color: colors.pass },
   deck: { height: 260, alignItems: "center", justifyContent: "center" },
   card: {
     width: "100%",
