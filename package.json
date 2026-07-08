@@ -36,7 +36,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "deploy": "gh-pages --nojekyll -d dist --before-add scripts/gh-pages-before-add.js"
+    "deploy": "gh-pages --nojekyll -d dist --before-add ./scripts/gh-pages-before-add.js"
   },
   "private": true
 }
