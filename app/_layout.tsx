@@ -1,36 +1,50 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { ensureAnonymousSession } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
+import { getAuthStatus } from "../lib/auth";
 import { logEvent } from "../lib/analytics";
 import { registerPushToken } from "../lib/push";
+import { SignInGate } from "../components/SignInGate";
 import { colors, type } from "../lib/theme";
 
-export default function RootLayout() {
-  const [ready, setReady] = useState(false);
+type Phase = "loading" | "gate" | "app";
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      // Bootstrap an anonymous session before rendering any data screen, and
-      // fire the once-per-cold-start app_opened event.
-      await ensureAnonymousSession();
-      await logEvent("app_opened", { platform: "expo" });
-      if (!cancelled) setReady(true);
-      // Register this device's Expo push token (native only, best-effort) so the
-      // backend can notify members when a Decide Now session starts. Fire after
-      // marking ready so a permission prompt never blocks first paint.
-      registerPushToken();
-    })();
-    return () => {
-      cancelled = true;
-    };
+export default function RootLayout() {
+  const [phase, setPhase] = useState<Phase>("loading");
+
+  // The app is gated on a *permanent* (email-linked) session. An anonymous
+  // session or no session shows the sign-in gate; the gate migrates an
+  // existing anonymous account in place (preserving its collections) or signs
+  // a new user in. We no longer auto-create an anonymous session on launch.
+  const evaluate = useCallback(async () => {
+    const { hasSession, isAnonymous } = await getAuthStatus();
+    setPhase(hasSession && !isAnonymous ? "app" : "gate");
   }, []);
 
-  if (!ready) {
+  useEffect(() => {
+    evaluate();
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      evaluate();
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [evaluate]);
+
+  // Fire the once-per-launch app_opened + push registration when the user
+  // actually reaches the app (not on the sign-in gate).
+  const enteredRef = useRef(false);
+  useEffect(() => {
+    if (phase === "app" && !enteredRef.current) {
+      enteredRef.current = true;
+      logEvent("app_opened", { platform: "expo" });
+      registerPushToken();
+    }
+  }, [phase]);
+
+  if (phase === "loading") {
     return (
       <View style={styles.loading}>
         <Text style={styles.loadingLogo}>🍽️</Text>
@@ -45,38 +59,41 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.ink,
-            headerTitleStyle: { fontWeight: "700" },
-            headerShadowVisible: false,
-            contentStyle: { backgroundColor: colors.background },
-          }}
-        >
-          <Stack.Screen name="index" options={{ title: "Collections" }} />
-          <Stack.Screen name="sync" options={{ title: "Sync" }} />
-          <Stack.Screen
-            name="collection/[id]/index"
-            options={{ title: "Collection" }}
-          />
-          <Stack.Screen
-            name="collection/[id]/add"
-            options={{ title: "Add Restaurant", presentation: "modal" }}
-          />
-          <Stack.Screen
-            name="collection/[id]/stats"
-            options={{ title: "Group Stats" }}
-          />
-          <Stack.Screen
-            name="collection/[id]/join"
-            options={{ title: "Joining…" }}
-          />
-          <Stack.Screen
-            name="collection/[id]/decide/[sessionId]"
-            options={{ title: "Let's Decide" }}
-          />
-        </Stack>
+        {phase === "gate" ? (
+          <SignInGate onSignedIn={evaluate} />
+        ) : (
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.ink,
+              headerTitleStyle: { fontWeight: "700" },
+              headerShadowVisible: false,
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          >
+            <Stack.Screen name="index" options={{ title: "Collections" }} />
+            <Stack.Screen
+              name="collection/[id]/index"
+              options={{ title: "Collection" }}
+            />
+            <Stack.Screen
+              name="collection/[id]/add"
+              options={{ title: "Add Restaurant", presentation: "modal" }}
+            />
+            <Stack.Screen
+              name="collection/[id]/stats"
+              options={{ title: "Group Stats" }}
+            />
+            <Stack.Screen
+              name="collection/[id]/join"
+              options={{ title: "Joining…" }}
+            />
+            <Stack.Screen
+              name="collection/[id]/decide/[sessionId]"
+              options={{ title: "Let's Decide" }}
+            />
+          </Stack>
+        )}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

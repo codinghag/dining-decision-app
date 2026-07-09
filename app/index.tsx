@@ -3,7 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "
 import { Link, useFocusEffect, useRouter } from "expo-router";
 import { createCollection, listCollections, type Collection } from "../lib/db";
 import { getMyDisplayName, setMyDisplayName } from "../lib/profile";
-import { getAuthStatus } from "../lib/auth";
+import { getAuthStatus, signOut } from "../lib/auth";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { TextField } from "../components/TextField";
 import { Button } from "../components/Button";
@@ -118,11 +118,16 @@ export default function CollectionsScreen() {
         ) : null}
       </View>
 
-      <Pressable style={styles.syncRow} onPress={() => router.push("/sync")}>
-        <Text style={[styles.syncText, syncEmail ? styles.syncTextMuted : null]}>
-          {syncEmail ? `☁️ Synced · ${syncEmail}` : "☁️ Sync across devices"}
-        </Text>
-      </Pressable>
+      {syncEmail ? (
+        <View style={styles.syncRow}>
+          <Text style={styles.syncTextMuted} numberOfLines={1}>
+            {syncEmail}
+          </Text>
+          <Pressable onPress={() => signOut()} hitSlop={8}>
+            <Text style={styles.syncText}>Sign out</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <View style={styles.createRow}>
         <TextField
@@ -172,9 +177,15 @@ const styles = StyleSheet.create({
   },
   identityText: { ...type.subtitle },
   identityEditLink: { ...type.label, color: colors.primary },
-  syncRow: { paddingBottom: spacing.sm },
+  syncRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
   syncText: { ...type.label, color: colors.primary },
-  syncTextMuted: { color: colors.inkTertiary },
+  syncTextMuted: { ...type.caption, color: colors.inkTertiary, flex: 1 },
   createRow: { flexDirection: "row", gap: spacing.sm },
   input: { flex: 1 },
   list: { paddingTop: spacing.base, gap: spacing.sm },

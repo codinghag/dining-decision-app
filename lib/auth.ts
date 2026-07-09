@@ -1,24 +1,33 @@
-import { ensureAnonymousSession, supabase } from "./supabase";
+import { supabase } from "./supabase";
 
-// "Sign in to sync": links a permanent email identity to the current
-// anonymous account (keeping the same user id and all its data), and lets a
-// returning user sign back into that account on another device. Everything is
-// code-based (6-digit OTP) so it works identically on web and Expo Go with no
-// deep-link / redirect handling.
+// Email + 6-digit-OTP auth. Two flows, chosen automatically by the sign-in
+// gate based on the current session:
+//   - LINK (updateUser + verifyOtp type=email_change): the current session is
+//     anonymous, so we attach an email to it IN PLACE, keeping the same user
+//     id and all its collections/votes. Used to migrate an existing anonymous
+//     user (e.g. someone's phone) to a permanent, recoverable account.
+//   - SIGN IN (signInWithOtp + verifyOtp type=email): no session yet (brand-new
+//     or a clean device), so create/return the email's own account.
+// All code-based so it works identically on web, iOS and Android with no
+// deep-link/redirect handling.
 
 export interface AuthStatus {
-  email: string | null;
+  hasSession: boolean;
   isAnonymous: boolean;
+  email: string | null;
 }
 
 export async function getAuthStatus(): Promise<AuthStatus> {
-  const { data } = await supabase.auth.getUser();
-  const u = data.user;
-  return { email: u?.email ?? null, isAnonymous: u?.is_anonymous ?? true };
+  const { data } = await supabase.auth.getSession();
+  const u = data.session?.user;
+  return {
+    hasSession: !!u,
+    isAnonymous: u?.is_anonymous ?? false,
+    email: u?.email ?? null,
+  };
 }
 
-// --- Link (device 1): attach an email to THIS anonymous account -----------
-// Sends a code to the new address; the account keeps its id + data.
+// --- Link: attach an email to the current anonymous account (preserves data) --
 export async function sendLinkCode(email: string): Promise<void> {
   const { error } = await supabase.auth.updateUser({ email });
   if (error) throw error;
@@ -28,13 +37,13 @@ export async function confirmLinkCode(email: string, token: string): Promise<voi
   if (error) throw error;
 }
 
-// --- Sign in (device 2): get back into an EXISTING synced account ---------
-// shouldCreateUser:false so an unknown email errors instead of silently
-// creating a brand-new empty account.
+// --- Sign in / sign up with an email's own account ------------------------
 export async function sendSignInCode(email: string): Promise<void> {
+  // shouldCreateUser:true so a brand-new user can sign up from the same gate;
+  // an existing email just signs in.
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: false },
+    options: { shouldCreateUser: true },
   });
   if (error) throw error;
 }
@@ -43,9 +52,13 @@ export async function confirmSignInCode(email: string, token: string): Promise<v
   if (error) throw error;
 }
 
-// Sign out, then drop back to a fresh anonymous session so the app keeps
-// working (and so a single device can be used to test the sign-in flow).
-export async function signOutToAnonymous(): Promise<void> {
+export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
-  await ensureAnonymousSession();
+}
+
+// Supabase's "email already in use" error, used to fall back from link ->
+// sign-in when someone links an email that already has an account.
+export function isEmailAlreadyRegistered(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /already (been )?registered|already in use|already exists/i.test(msg);
 }
