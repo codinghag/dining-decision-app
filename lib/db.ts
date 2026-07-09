@@ -71,6 +71,25 @@ export async function deleteCollection(id: string): Promise<void> {
   await logEvent("collection_deleted", { collection_id: id });
 }
 
+// Remove a single restaurant from a collection (deletes only the join row;
+// the shared restaurants row is left for any other collections). Any member
+// may remove one — enforced by RLS (collection_restaurants_delete).
+export async function removeRestaurantFromCollection(
+  collectionId: string,
+  restaurantId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("collection_restaurants")
+    .delete()
+    .eq("collection_id", collectionId)
+    .eq("restaurant_id", restaurantId);
+  if (error) throw error;
+  await logEvent("restaurant_removed", {
+    collection_id: collectionId,
+    restaurant_id: restaurantId,
+  });
+}
+
 // Restaurants in a collection, resolved through the join table.
 export async function listCollectionRestaurants(
   collectionId: string,

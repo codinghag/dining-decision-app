@@ -12,6 +12,7 @@ import {
   ensureRestaurant,
   getCollection,
   listCollectionRestaurants,
+  removeRestaurantFromCollection,
   type Collection,
   type Restaurant,
 } from "../../../lib/db";
@@ -39,6 +40,8 @@ export default function CollectionDetailScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [restaurantToRemove, setRestaurantToRemove] = useState<Restaurant | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [wildcard, setWildcard] = useState(false);
   const [location, setLocation] = useState<Coords | null>(null);
   useEffect(() => {
@@ -124,6 +127,21 @@ export default function CollectionDetailScreen() {
     }
   }
 
+  async function onConfirmRemove() {
+    if (!id || !restaurantToRemove) return;
+    setRemoving(true);
+    setError(null);
+    try {
+      await removeRestaurantFromCollection(id, restaurantToRemove.id);
+      setRestaurantToRemove(null);
+      await load();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   const hasRestaurants = restaurants.length > 0;
   const isOwner = !!userId && !!collection && collection.owner_id === userId;
 
@@ -156,6 +174,17 @@ export default function CollectionDetailScreen() {
         loading={deleting}
         onConfirm={onConfirmDelete}
         onCancel={() => setConfirmDeleteVisible(false)}
+      />
+
+      <ConfirmDialog
+        visible={!!restaurantToRemove}
+        title="Remove this restaurant?"
+        message={`"${restaurantToRemove?.name}" will be removed from this collection.`}
+        confirmLabel="Remove"
+        destructive
+        loading={removing}
+        onConfirm={onConfirmRemove}
+        onCancel={() => setRestaurantToRemove(null)}
       />
 
       <View style={styles.topRow}>
@@ -205,7 +234,12 @@ export default function CollectionDetailScreen() {
           }
           renderItem={({ item }) => (
             <Card elevated>
-              <Text style={styles.cardTitle}>{item.name}</Text>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <Pressable onPress={() => setRestaurantToRemove(item)} hitSlop={8}>
+                  <Text style={styles.cardRemove}>Remove</Text>
+                </Pressable>
+              </View>
               <RestaurantTags cuisine={item.cuisine} priceLevel={item.price_level} />
               {item.address ? <Text style={styles.cardSub}>{item.address}</Text> : null}
               {item.phone || item.website ? (
@@ -253,7 +287,9 @@ const styles = StyleSheet.create({
   wildcardHint: { ...type.caption, color: colors.inkTertiary, paddingTop: spacing.xs },
   statsLinkText: { ...type.label, color: colors.primary },
   list: { paddingTop: spacing.base, gap: spacing.sm },
-  cardTitle: { ...type.subtitle },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.sm },
+  cardTitle: { ...type.subtitle, flex: 1 },
+  cardRemove: { ...type.label, color: colors.pass },
   cardSub: { ...type.body, color: colors.inkSecondary },
   cardMetaRow: { flexDirection: "row", gap: spacing.md, flexWrap: "wrap", marginTop: spacing.xs },
   cardMeta: { ...type.caption },
