@@ -70,6 +70,18 @@ export default function StatsScreen() {
             </Text>
           </Card>
 
+          {stats!.recentDecisions.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Recent decisions</Text>
+              {stats!.recentDecisions.map((d) => (
+                <Card key={d.sessionId} style={styles.rowCard}>
+                  <Text style={styles.rowName}>🏆 {d.name}</Text>
+                  <Text style={styles.rowSub}>{formatDecisionDate(d.completedAt)}</Text>
+                </Card>
+              ))}
+            </View>
+          ) : null}
+
           {stats!.agreements.length > 0 ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>You agree most with</Text>
@@ -126,6 +138,13 @@ export default function StatsScreen() {
       )}
     </ScrollView>
   );
+}
+
+function formatDecisionDate(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 const styles = StyleSheet.create({

@@ -21,11 +21,18 @@ export interface MemberInRate {
   totalVotes: number;
 }
 
+export interface RecentDecision {
+  sessionId: string;
+  name: string;
+  completedAt: string | null;
+}
+
 export interface CollectionStats {
   totalSessions: number;
   topRestaurants: TopRestaurant[];
   agreements: Agreement[]; // current user vs each other member
   memberInRates: MemberInRate[];
+  recentDecisions: RecentDecision[]; // most recent first
 }
 
 // Computes group stats for a collection from its decide sessions + votes.
@@ -36,13 +43,14 @@ export async function getCollectionStats(collectionId: string): Promise<Collecti
 
   const { data: sessions, error: sErr } = await supabase
     .from("decide_sessions")
-    .select("id,status,winner_restaurant_id")
+    .select("id,status,winner_restaurant_id,completed_at")
     .eq("collection_id", collectionId);
   if (sErr) throw sErr;
   const sessionRows = (sessions ?? []) as {
     id: string;
     status: string;
     winner_restaurant_id: string | null;
+    completed_at: string | null;
   }[];
   const completed = sessionRows.filter((s) => s.status === "completed");
   const sessionIds = sessionRows.map((s) => s.id);
@@ -83,6 +91,17 @@ export async function getCollectionStats(collectionId: string): Promise<Collecti
   const userIds = Array.from(new Set(votes.map((v) => v.user_id)));
   const names = await getDisplayNames(userIds);
   const nameOf = (uid: string) => names[uid] ?? "Someone";
+
+  // Chronological history of decisions (most recent first) — the group's memory.
+  const recentDecisions = completed
+    .filter((s) => s.winner_restaurant_id)
+    .map((s) => ({
+      sessionId: s.id,
+      name: nameById[s.winner_restaurant_id as string] ?? "Unknown",
+      completedAt: s.completed_at,
+    }))
+    .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""))
+    .slice(0, 15);
 
   // Top restaurants by number of wins.
   const winCounts: Record<string, number> = {};
@@ -143,5 +162,11 @@ export async function getCollectionStats(collectionId: string): Promise<Collecti
     agreements.sort((a, b) => b.agreementPct - a.agreementPct);
   }
 
-  return { totalSessions: completed.length, topRestaurants, agreements, memberInRates };
+  return {
+    totalSessions: completed.length,
+    topRestaurants,
+    agreements,
+    memberInRates,
+    recentDecisions,
+  };
 }

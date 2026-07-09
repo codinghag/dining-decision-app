@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   StyleSheet,
   Text,
   View,
@@ -30,6 +31,8 @@ import {
 import { Button } from "../../../../components/Button";
 import { RestaurantTags } from "../../../../components/RestaurantTags";
 import { Confetti } from "../../../../components/Confetti";
+import { buildMapsUrl } from "../../../../lib/maps";
+import { logEvent } from "../../../../lib/analytics";
 import { colors, radius, shadow, spacing, type } from "../../../../lib/theme";
 
 const SWIPE_THRESHOLD = 110; // px of horizontal travel to count as a decision
@@ -306,6 +309,14 @@ export default function DecideScreen() {
     voteCurrentCard(vote);
   }
 
+  function openDirections(r: Restaurant) {
+    logEvent("directions_opened", {
+      session_id: sessionId,
+      restaurant_id: r.id,
+    });
+    Linking.openURL(buildMapsUrl(r)).catch((e) => setError(String(e)));
+  }
+
   function renderTallies() {
     return restaurants.map((r) => {
       const count = tallies[r.id] ?? 0;
@@ -364,9 +375,17 @@ export default function DecideScreen() {
           {winner?.address ? (
             <Text style={styles.resultSub}>{winner.address}</Text>
           ) : null}
+          {winner ? (
+            <Button
+              label="Get directions"
+              style={styles.directionsButton}
+              onPress={() => openDirections(winner)}
+            />
+          ) : null}
           <View style={styles.tallies}>{renderTallies()}</View>
           <Button
             label="Back to collection"
+            variant="outline"
             style={styles.primaryButton}
             onPress={() => router.replace(`/collection/${collectionId}`)}
           />
@@ -526,7 +545,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     backgroundColor: colors.yes,
   },
-  primaryButton: { marginTop: spacing.sm },
+  directionsButton: { marginTop: spacing.sm, alignSelf: "stretch" },
+  primaryButton: { marginTop: spacing.sm, alignSelf: "stretch" },
   resultBox: { gap: spacing.sm, alignItems: "center", paddingTop: spacing.lg },
   trophy: { fontSize: 52 },
   resultLabel: { ...type.label, textTransform: "uppercase", letterSpacing: 1 },
