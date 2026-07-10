@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { supabase } from "../lib/supabase";
@@ -15,6 +15,8 @@ type Phase = "loading" | "gate" | "app";
 
 export default function RootLayout() {
   const [phase, setPhase] = useState<Phase>("loading");
+  const pathname = usePathname();
+  const isPublicRoute = pathname === "/privacy";
 
   // The app is gated on a *permanent* (email-linked) session. An anonymous
   // session or no session shows the sign-in gate; the gate migrates an
@@ -43,6 +45,27 @@ export default function RootLayout() {
       registerPushToken();
     }
   }, [phase]);
+
+  if (isPublicRoute) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StatusBar style="dark" />
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.ink,
+              headerTitleStyle: { fontWeight: "700" },
+              headerShadowVisible: false,
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          >
+            <Stack.Screen name="privacy" options={{ title: "Privacy Policy" }} />
+          </Stack>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
 
   if (phase === "loading") {
     return (
@@ -92,6 +115,7 @@ export default function RootLayout() {
               name="collection/[id]/decide/[sessionId]"
               options={{ title: "Let's Decide" }}
             />
+            <Stack.Screen name="privacy" options={{ title: "Privacy Policy" }} />
           </Stack>
         )}
       </SafeAreaProvider>
