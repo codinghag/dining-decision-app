@@ -19,6 +19,7 @@ export interface NormalizedPlace {
   rating: number | null;
   rating_count: number | null;
   utc_offset_minutes: number | null;
+  photo_name: string | null;
 }
 
 export interface PlaceSearchResult {
@@ -71,6 +72,7 @@ const DETAILS_FIELD_MASK = [
   "rating",
   "userRatingCount",
   "utcOffsetMinutes",
+  "photos",
 ].join(",");
 
 // Search field mask — lightweight list for pick-a-result UI.
@@ -101,6 +103,7 @@ function normalizeDetails(p: any): NormalizedPlace {
     rating: typeof p.rating === "number" ? p.rating : null,
     rating_count: typeof p.userRatingCount === "number" ? p.userRatingCount : null,
     utc_offset_minutes: typeof p.utcOffsetMinutes === "number" ? p.utcOffsetMinutes : null,
+    photo_name: typeof p.photos?.[0]?.name === "string" ? p.photos[0].name : null,
   };
 }
 

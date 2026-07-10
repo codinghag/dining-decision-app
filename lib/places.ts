@@ -17,6 +17,7 @@ export interface Place {
   rating: number | null;
   rating_count: number | null;
   utc_offset_minutes: number | null;
+  photo_name: string | null;
 }
 
 export interface PlaceSearchResult {

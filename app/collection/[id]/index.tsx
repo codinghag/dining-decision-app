@@ -28,6 +28,7 @@ import { Card } from "../../../components/Card";
 import { EmptyState } from "../../../components/EmptyState";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { RestaurantTags } from "../../../components/RestaurantTags";
+import { RestaurantPhoto } from "../../../components/RestaurantPhoto";
 import { colors, spacing, type } from "../../../lib/theme";
 
 export default function CollectionDetailScreen() {
@@ -235,32 +236,39 @@ export default function CollectionDetailScreen() {
           }
           renderItem={({ item }) => (
             <Card elevated>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <Pressable onPress={() => setRestaurantToRemove(item)} hitSlop={8}>
-                  <Text style={styles.cardRemove}>Remove</Text>
-                </Pressable>
-              </View>
-              <RestaurantTags
-                cuisine={item.cuisine}
-                priceLevel={item.price_level}
-                rating={item.rating}
-                ratingCount={item.rating_count}
-                openNow={isOpenNow(item.hours, item.utc_offset_minutes)}
-              />
-              {item.address ? <Text style={styles.cardSub}>{item.address}</Text> : null}
-              {item.phone || item.website ? (
-                <View style={styles.cardMetaRow}>
-                  {item.phone ? (
-                    <Text style={styles.cardMeta}>📞 {item.phone}</Text>
-                  ) : null}
-                  {item.website ? (
-                    <Text style={styles.cardMeta} numberOfLines={1}>
-                      🌐 {item.website}
-                    </Text>
+              <View style={styles.cardRow}>
+                {item.photo_name ? (
+                  <RestaurantPhoto photoName={item.photo_name} variant="thumb" />
+                ) : null}
+                <View style={styles.cardBody}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle}>{item.name}</Text>
+                    <Pressable onPress={() => setRestaurantToRemove(item)} hitSlop={8}>
+                      <Text style={styles.cardRemove}>Remove</Text>
+                    </Pressable>
+                  </View>
+                  <RestaurantTags
+                    cuisine={item.cuisine}
+                    priceLevel={item.price_level}
+                    rating={item.rating}
+                    ratingCount={item.rating_count}
+                    openNow={isOpenNow(item.hours, item.utc_offset_minutes)}
+                  />
+                  {item.address ? <Text style={styles.cardSub}>{item.address}</Text> : null}
+                  {item.phone || item.website ? (
+                    <View style={styles.cardMetaRow}>
+                      {item.phone ? (
+                        <Text style={styles.cardMeta}>📞 {item.phone}</Text>
+                      ) : null}
+                      {item.website ? (
+                        <Text style={styles.cardMeta} numberOfLines={1}>
+                          🌐 {item.website}
+                        </Text>
+                      ) : null}
+                    </View>
                   ) : null}
                 </View>
-              ) : null}
+              </View>
             </Card>
           )}
         />
@@ -294,6 +302,8 @@ const styles = StyleSheet.create({
   wildcardHint: { ...type.caption, color: colors.inkTertiary, paddingTop: spacing.xs },
   statsLinkText: { ...type.label, color: colors.primary },
   list: { paddingTop: spacing.base, gap: spacing.sm },
+  cardRow: { flexDirection: "row", gap: spacing.md, alignItems: "flex-start" },
+  cardBody: { flex: 1, gap: spacing.xs },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.sm },
   cardTitle: { ...type.subtitle, flex: 1 },
   cardRemove: { ...type.label, color: colors.pass },

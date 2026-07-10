@@ -13,6 +13,7 @@ import { saveRestaurantToCollection, type CaptureMethod } from "../../../lib/db"
 import { extractSocialLinks, type SocialLink } from "../../../lib/socialImport";
 import { getCurrentLocation, type Coords } from "../../../lib/location";
 import { isOpenNow } from "../../../lib/hours";
+import { RestaurantPhoto } from "../../../components/RestaurantPhoto";
 import { TextField } from "../../../components/TextField";
 import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
@@ -238,6 +239,9 @@ export default function AddRestaurantScreen() {
 
           {resolved && (
             <Card style={styles.confirm}>
+              {resolved.photo_name ? (
+                <RestaurantPhoto photoName={resolved.photo_name} variant="hero" />
+              ) : null}
               <Text style={styles.confirmTitle}>{resolved.name}</Text>
               <RestaurantTags
                 cuisine={resolved.cuisine}

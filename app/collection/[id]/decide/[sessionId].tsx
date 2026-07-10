@@ -30,6 +30,7 @@ import {
 } from "../../../../lib/decide";
 import { Button } from "../../../../components/Button";
 import { RestaurantTags } from "../../../../components/RestaurantTags";
+import { RestaurantPhoto } from "../../../../components/RestaurantPhoto";
 import { Confetti } from "../../../../components/Confetti";
 import { buildMapsUrl } from "../../../../lib/maps";
 import { isOpenNow } from "../../../../lib/hours";
@@ -422,6 +423,9 @@ export default function DecideScreen() {
                   <Animated.View style={[styles.stamp, styles.stampPass, passOpacity]}>
                     <Text style={styles.stampPassText}>PASS</Text>
                   </Animated.View>
+                  {current?.photo_name ? (
+                    <RestaurantPhoto photoName={current.photo_name} variant="hero" />
+                  ) : null}
                   <Text style={styles.cardName}>{current?.name}</Text>
                   <RestaurantTags
                     cuisine={current?.cuisine}
@@ -492,10 +496,10 @@ const styles = StyleSheet.create({
   timerUrgent: { backgroundColor: colors.passLight, borderColor: colors.pass },
   timerText: { ...type.subtitle, color: colors.inkSecondary },
   timerTextUrgent: { color: colors.pass },
-  deck: { height: 260, alignItems: "center", justifyContent: "center" },
+  deck: { minHeight: 300, alignItems: "center", justifyContent: "center" },
   card: {
     width: "100%",
-    height: 240,
+    minHeight: 280,
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
     padding: spacing.lg,

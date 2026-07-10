@@ -11,6 +11,11 @@ verify_jwt = true
 [functions.places-resolve-link]
 verify_jwt = true
 
+# Public: a plain <img>/<Image> can't send an auth header. The function only
+# proxies a validated Google place-photo resource name.
+[functions.places-photo]
+verify_jwt = false
+
 [functions.join-collection]
 verify_jwt = true
 
