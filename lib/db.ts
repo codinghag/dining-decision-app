@@ -21,6 +21,9 @@ export interface Restaurant {
   hours: unknown | null;
   cuisine: string | null;
   price_level: number | null;
+  rating: number | null;
+  rating_count: number | null;
+  utc_offset_minutes: number | null;
   source_url: string | null;
   source_platform: "instagram" | "tiktok" | null;
   created_by: string | null;
@@ -156,6 +159,9 @@ export async function ensureRestaurant(
       hours: place.hours ?? null,
       cuisine: place.cuisine ?? null,
       price_level: place.price_level ?? null,
+      rating: place.rating ?? null,
+      rating_count: place.rating_count ?? null,
+      utc_offset_minutes: place.utc_offset_minutes ?? null,
       source_url: social?.source_url ?? null,
       source_platform: social?.source_platform ?? null,
       created_by: userId,

@@ -32,6 +32,7 @@ import { Button } from "../../../../components/Button";
 import { RestaurantTags } from "../../../../components/RestaurantTags";
 import { Confetti } from "../../../../components/Confetti";
 import { buildMapsUrl } from "../../../../lib/maps";
+import { isOpenNow } from "../../../../lib/hours";
 import { logEvent } from "../../../../lib/analytics";
 import { colors, radius, shadow, spacing, type } from "../../../../lib/theme";
 
@@ -369,6 +370,9 @@ export default function DecideScreen() {
             <RestaurantTags
               cuisine={winner.cuisine}
               priceLevel={winner.price_level}
+              rating={winner.rating}
+              ratingCount={winner.rating_count}
+              openNow={isOpenNow(winner.hours, winner.utc_offset_minutes)}
               style={styles.resultTags}
             />
           ) : null}
@@ -422,6 +426,9 @@ export default function DecideScreen() {
                   <RestaurantTags
                     cuisine={current?.cuisine}
                     priceLevel={current?.price_level}
+                    rating={current?.rating}
+                    ratingCount={current?.rating_count}
+                    openNow={current ? isOpenNow(current.hours, current.utc_offset_minutes) : null}
                     style={styles.cardCuisine}
                   />
                   {current?.address ? (

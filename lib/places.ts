@@ -14,6 +14,9 @@ export interface Place {
   hours: unknown | null;
   cuisine: string | null;
   price_level: number | null;
+  rating: number | null;
+  rating_count: number | null;
+  utc_offset_minutes: number | null;
 }
 
 export interface PlaceSearchResult {
@@ -24,6 +27,8 @@ export interface PlaceSearchResult {
   lng: number | null;
   cuisine: string | null;
   price_level: number | null;
+  rating: number | null;
+  rating_count: number | null;
 }
 
 // Thin wrappers around the three Supabase Edge Functions. The app never talks

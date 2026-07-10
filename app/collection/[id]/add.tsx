@@ -12,6 +12,7 @@ import {
 import { saveRestaurantToCollection, type CaptureMethod } from "../../../lib/db";
 import { extractSocialLinks, type SocialLink } from "../../../lib/socialImport";
 import { getCurrentLocation, type Coords } from "../../../lib/location";
+import { isOpenNow } from "../../../lib/hours";
 import { TextField } from "../../../components/TextField";
 import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
@@ -238,7 +239,13 @@ export default function AddRestaurantScreen() {
           {resolved && (
             <Card style={styles.confirm}>
               <Text style={styles.confirmTitle}>{resolved.name}</Text>
-              <RestaurantTags cuisine={resolved.cuisine} priceLevel={resolved.price_level} />
+              <RestaurantTags
+                cuisine={resolved.cuisine}
+                priceLevel={resolved.price_level}
+                rating={resolved.rating}
+                ratingCount={resolved.rating_count}
+                openNow={isOpenNow(resolved.hours, resolved.utc_offset_minutes)}
+              />
               {resolved.address ? (
                 <Text style={styles.confirmSub}>{resolved.address}</Text>
               ) : null}
@@ -272,7 +279,12 @@ export default function AddRestaurantScreen() {
             <Pressable key={r.google_place_id} onPress={() => onPickResult(r)}>
               <Card>
                 <Text style={styles.confirmTitle}>{r.name}</Text>
-                <RestaurantTags cuisine={r.cuisine} priceLevel={r.price_level} />
+                <RestaurantTags
+                  cuisine={r.cuisine}
+                  priceLevel={r.price_level}
+                  rating={r.rating}
+                  ratingCount={r.rating_count}
+                />
                 {r.address ? <Text style={styles.confirmSub}>{r.address}</Text> : null}
               </Card>
             </Pressable>
@@ -389,7 +401,12 @@ export default function AddRestaurantScreen() {
                       <Pressable key={r.google_place_id} onPress={() => onImportPick(link, r)}>
                         <Card>
                           <Text style={styles.confirmTitle}>{r.name}</Text>
-                          <RestaurantTags cuisine={r.cuisine} priceLevel={r.price_level} />
+                          <RestaurantTags
+                  cuisine={r.cuisine}
+                  priceLevel={r.price_level}
+                  rating={r.rating}
+                  ratingCount={r.rating_count}
+                />
                           {r.address ? (
                             <Text style={styles.confirmSub}>{r.address}</Text>
                           ) : null}

@@ -16,6 +16,9 @@ export interface NormalizedPlace {
   hours: unknown | null;
   cuisine: string | null;
   price_level: number | null;
+  rating: number | null;
+  rating_count: number | null;
+  utc_offset_minutes: number | null;
 }
 
 export interface PlaceSearchResult {
@@ -26,6 +29,8 @@ export interface PlaceSearchResult {
   lng: number | null;
   cuisine: string | null;
   price_level: number | null;
+  rating: number | null;
+  rating_count: number | null;
 }
 
 // Google's priceLevel is a string enum; normalize to 1-4 ($ .. $$$$) to match
@@ -63,6 +68,9 @@ const DETAILS_FIELD_MASK = [
   "regularOpeningHours",
   "primaryTypeDisplayName",
   "priceLevel",
+  "rating",
+  "userRatingCount",
+  "utcOffsetMinutes",
 ].join(",");
 
 // Search field mask — lightweight list for pick-a-result UI.
@@ -73,6 +81,8 @@ const SEARCH_FIELD_MASK = [
   "places.location",
   "places.primaryTypeDisplayName",
   "places.priceLevel",
+  "places.rating",
+  "places.userRatingCount",
 ].join(",");
 
 // deno-lint-ignore no-explicit-any
@@ -88,6 +98,9 @@ function normalizeDetails(p: any): NormalizedPlace {
     hours: p.regularOpeningHours ?? null,
     cuisine: p.primaryTypeDisplayName?.text ?? null,
     price_level: parsePriceLevel(p.priceLevel),
+    rating: typeof p.rating === "number" ? p.rating : null,
+    rating_count: typeof p.userRatingCount === "number" ? p.userRatingCount : null,
+    utc_offset_minutes: typeof p.utcOffsetMinutes === "number" ? p.utcOffsetMinutes : null,
   };
 }
 
@@ -152,6 +165,8 @@ export async function searchText(
     lng: p.location?.longitude ?? null,
     cuisine: p.primaryTypeDisplayName?.text ?? null,
     price_level: parsePriceLevel(p.priceLevel),
+    rating: typeof p.rating === "number" ? p.rating : null,
+    rating_count: typeof p.userRatingCount === "number" ? p.userRatingCount : null,
   }));
 }
 

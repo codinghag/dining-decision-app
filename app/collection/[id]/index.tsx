@@ -21,6 +21,7 @@ import { shareCollectionInvite } from "../../../lib/invite";
 import { startDecideSession } from "../../../lib/decide";
 import { getCurrentLocation, type Coords } from "../../../lib/location";
 import { pickWildcardPlace } from "../../../lib/wildcard";
+import { isOpenNow } from "../../../lib/hours";
 import { ScreenContainer } from "../../../components/ScreenContainer";
 import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
@@ -240,7 +241,13 @@ export default function CollectionDetailScreen() {
                   <Text style={styles.cardRemove}>Remove</Text>
                 </Pressable>
               </View>
-              <RestaurantTags cuisine={item.cuisine} priceLevel={item.price_level} />
+              <RestaurantTags
+                cuisine={item.cuisine}
+                priceLevel={item.price_level}
+                rating={item.rating}
+                ratingCount={item.rating_count}
+                openNow={isOpenNow(item.hours, item.utc_offset_minutes)}
+              />
               {item.address ? <Text style={styles.cardSub}>{item.address}</Text> : null}
               {item.phone || item.website ? (
                 <View style={styles.cardMetaRow}>
