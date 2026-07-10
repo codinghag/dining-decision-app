@@ -111,13 +111,14 @@ The web build is deployed to GitHub Pages: https://codinghag.github.io/dining-de
 To redeploy after making changes:
 
 ```bash
-# 1. Temporarily add a base path for the GitHub Pages subpath (do not commit this):
-#    add "experiments": { "baseUrl": "/dining-decision-app" } under "expo" in app.json
-npx expo export -p web
-git checkout -- app.json   # revert the temporary baseUrl change
-cp dist/index.html dist/404.html   # SPA fallback so client-side routes work on refresh
 npm run deploy
 ```
+
+`scripts/deploy-web.js` runs the whole flow: it temporarily sets the GitHub
+Pages base path in `app.json`, runs `expo export -p web`, restores `app.json`
+to its original contents (even if the export fails), copies `dist/index.html`
+to `dist/404.html` as the SPA fallback so client-side routes survive a
+refresh, then publishes `dist/` via `gh-pages`.
 
 `scripts/gh-pages-before-add.js` strips a stray `.gitignore` that gh-pages'
 temp clone otherwise inherits from this repo — without it, any asset path
