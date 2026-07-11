@@ -2,13 +2,18 @@
 // Automates the GitHub Pages deploy flow from README.md's "Web deployment"
 // section: temporarily set the Pages base path, export, add the SPA 404
 // fallback, publish -- then always restore app.json, even on failure.
+//
+// Served from the outforked.com custom domain, which sits at the apex
+// (not a /dining-decision-app subpath the way the raw github.io project
+// page did), so the exported asset paths must be root-relative.
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
 
 const root = path.join(__dirname, "..");
 const appJsonPath = path.join(root, "app.json");
-const BASE_URL = "/dining-decision-app";
+const BASE_URL = "";
+const CNAME = "outforked.com";
 
 function run(cmd) {
   console.log(`> ${cmd}`);
@@ -34,7 +39,7 @@ fs.copyFileSync(
 );
 
 run(
-  "npx gh-pages --nojekyll -d dist --before-add ./scripts/gh-pages-before-add.js",
+  `npx gh-pages --nojekyll -d dist --cname ${CNAME} --before-add ./scripts/gh-pages-before-add.js`,
 );
 
-console.log("\nDeployed: https://codinghag.github.io/dining-decision-app/");
+console.log(`\nDeployed: https://${CNAME}/`);

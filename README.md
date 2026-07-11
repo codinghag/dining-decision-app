@@ -106,7 +106,9 @@ supabase/
 
 ## Web deployment
 
-The web build is deployed to GitHub Pages: https://codinghag.github.io/dining-decision-app/
+The web build is deployed to GitHub Pages behind the custom domain
+https://outforked.com/ (DNS points at GitHub Pages; the `CNAME` record is
+written into the `gh-pages` branch on every deploy).
 
 To redeploy after making changes:
 
@@ -114,11 +116,13 @@ To redeploy after making changes:
 npm run deploy
 ```
 
-`scripts/deploy-web.js` runs the whole flow: it temporarily sets the GitHub
-Pages base path in `app.json`, runs `expo export -p web`, restores `app.json`
-to its original contents (even if the export fails), copies `dist/index.html`
-to `dist/404.html` as the SPA fallback so client-side routes survive a
-refresh, then publishes `dist/` via `gh-pages`.
+`scripts/deploy-web.js` runs the whole flow: it temporarily clears/sets the
+GitHub Pages base path in `app.json` (root-relative, since the custom domain
+serves from the apex rather than a `/dining-decision-app` project-pages
+subpath), runs `expo export -p web`, restores `app.json` to its original
+contents (even if the export fails), copies `dist/index.html` to
+`dist/404.html` as the SPA fallback so client-side routes survive a refresh,
+then publishes `dist/` via `gh-pages` with `--cname outforked.com`.
 
 `scripts/gh-pages-before-add.js` strips a stray `.gitignore` that gh-pages'
 temp clone otherwise inherits from this repo — without it, any asset path
