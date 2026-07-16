@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.cena25.diningdecision",
+      "sha256_cert_fingerprints": [
+        "DB:64:0A:F2:FB:6F:01:99:8F:0F:33:52:5B:71:E4:D9:23:CD:E2:F6:97:6A:70:86:80:F8:C7:0D:4C:62:6C:ED"
+      ]
+    }
+  }
+]
