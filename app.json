@@ -45,6 +45,13 @@
       "expo-router",
       "expo-notifications",
       [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": ["text/*"],
+          "disableIOS": true
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Forked uses your location to show nearby restaurants first when you search."

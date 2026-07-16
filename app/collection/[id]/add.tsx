@@ -10,7 +10,11 @@ import {
   type PlaceSearchResult,
 } from "../../../lib/places";
 import { saveRestaurantToCollection, type CaptureMethod } from "../../../lib/db";
-import { extractSocialLinks, type SocialLink } from "../../../lib/socialImport";
+import {
+  extractSocialLinks,
+  matchSocialLink,
+  type SocialLink,
+} from "../../../lib/socialImport";
 import { getCurrentLocation, type Coords } from "../../../lib/location";
 import { isOpenNow } from "../../../lib/hours";
 import { RestaurantPhoto } from "../../../components/RestaurantPhoto";
@@ -37,9 +41,15 @@ export default function AddRestaurantScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Link import state
+  // Link import state. A pasted link is either a Google Maps link (resolved
+  // server-side to a place) or an Instagram/TikTok post (no place data in the
+  // URL — the user matches it to a restaurant via search, and the post URL is
+  // saved as the source).
   const [link, setLink] = useState("");
   const [resolved, setResolved] = useState<Place | null>(null);
+  const [socialLink, setSocialLink] = useState<SocialLink | null>(null);
+  const [socialQuery, setSocialQuery] = useState("");
+  const [socialResults, setSocialResults] = useState<PlaceSearchResult[]>([]);
 
   // Search state
   const [query, setQuery] = useState("");
@@ -86,16 +96,59 @@ export default function AddRestaurantScreen() {
 
   // --- Link import -------------------------------------------------------
   async function onResolveLink() {
-    if (!link.trim()) return;
-    setBusy(true);
+    const trimmed = link.trim();
+    if (!trimmed) return;
     setError(null);
     setResolved(null);
+    setSocialLink(null);
+    setSocialResults([]);
+
+    // Instagram/TikTok post? No API can tell us which restaurant it shows,
+    // so switch to match-by-search and keep the post URL as the source.
+    const social = matchSocialLink(trimmed);
+    if (social) {
+      setSocialLink(social);
+      return;
+    }
+
+    setBusy(true);
     try {
-      const place = await resolveMapsLink(link.trim());
+      const place = await resolveMapsLink(trimmed);
       setResolved(place);
     } catch (e) {
       setError(String(e));
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSocialSearch() {
+    if (!socialQuery.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await searchPlaces(socialQuery.trim(), location ?? undefined);
+      setSocialResults(r);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSocialPick(r: PlaceSearchResult) {
+    if (!collectionId || !socialLink) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const place = await getPlaceDetails(r.google_place_id);
+      await saveRestaurantToCollection(collectionId, place, "social_import", {
+        source_url: socialLink.url,
+        source_platform: socialLink.platform,
+      });
+      done();
+    } catch (e) {
+      setError(String(e));
       setBusy(false);
     }
   }
@@ -231,16 +284,62 @@ export default function AddRestaurantScreen() {
       {tab === "link" && (
         <View style={styles.section}>
           <Text style={styles.help}>
-            Paste a Google Maps link (including maps.app.goo.gl short links).
+            Paste a Google Maps, Instagram, or TikTok link.
           </Text>
           <TextField
-            placeholder="https://maps.app.goo.gl/…"
+            placeholder="https://maps.app.goo.gl/… or instagram.com/reel/…"
             value={link}
             onChangeText={setLink}
             autoCapitalize="none"
             autoCorrect={false}
           />
           <Button label="Resolve" loading={busy} onPress={onResolveLink} />
+
+          {socialLink && (
+            <Card style={styles.importRow}>
+              <View style={styles.importRowHeader}>
+                <Text style={styles.importBadge}>
+                  {socialLink.platform === "instagram" ? "Instagram" : "TikTok"} post
+                </Text>
+                <Text style={styles.importUrl} numberOfLines={1}>
+                  {socialLink.url}
+                </Text>
+              </View>
+              <Text style={styles.help}>
+                We'll save this post with the restaurant — which spot is it?
+              </Text>
+              <View style={styles.searchRow}>
+                <TextField
+                  style={styles.searchInput}
+                  placeholder="What restaurant is this?"
+                  value={socialQuery}
+                  onChangeText={setSocialQuery}
+                  onSubmitEditing={onSocialSearch}
+                  returnKeyType="search"
+                />
+                <Button label="Go" loading={busy} onPress={onSocialSearch} />
+              </View>
+              {socialResults.map((r) => (
+                <Pressable
+                  key={r.google_place_id}
+                  onPress={() => onSocialPick(r)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Save ${r.name} to this collection`}
+                >
+                  <Card>
+                    <Text style={styles.confirmTitle}>{r.name}</Text>
+                    <RestaurantTags
+                      cuisine={r.cuisine}
+                      priceLevel={r.price_level}
+                      rating={r.rating}
+                      ratingCount={r.rating_count}
+                    />
+                    {r.address ? <Text style={styles.confirmSub}>{r.address}</Text> : null}
+                  </Card>
+                </Pressable>
+              ))}
+            </Card>
+          )}
 
           {resolved && (
             <Card style={styles.confirm}>

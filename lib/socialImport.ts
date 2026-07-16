@@ -38,6 +38,13 @@ function extractFromText(text: string): SocialLink[] {
   return found;
 }
 
+// Match a single pasted/shared URL (or text containing one) against the
+// known Instagram/TikTok post shapes. Used by the paste-link tab and the
+// Android share-sheet target, not just bulk export parsing.
+export function matchSocialLink(text: string): SocialLink | null {
+  return extractFromText(text)[0] ?? null;
+}
+
 function isTextLikeEntry(filename: string): boolean {
   return /\.(json|html?|txt)$/i.test(filename);
 }

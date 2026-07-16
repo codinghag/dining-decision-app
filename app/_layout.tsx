@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Stack, usePathname } from "expo-router";
+import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { useShareIntent } from "expo-share-intent";
 import { supabase } from "../lib/supabase";
 import { getAuthStatus } from "../lib/auth";
 import { logEvent } from "../lib/analytics";
@@ -57,6 +58,23 @@ export default function RootLayout() {
       registerPushToken();
     }
   }, [phase]);
+
+  // Android share-sheet target: a post shared from Instagram/TikTok/etc.
+  // arrives here. Native-module only (self-disables on web and in Expo Go);
+  // held until the user is through the sign-in gate, then routed to the
+  // save flow.
+  const router = useRouter();
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntent();
+  useEffect(() => {
+    if (phase !== "app" || !hasShareIntent) return;
+    const text = shareIntent.webUrl ?? shareIntent.text ?? "";
+    const title = shareIntent.meta?.title ?? "";
+    resetShareIntent();
+    router.push({
+      pathname: "/share-target",
+      params: { text, title },
+    });
+  }, [phase, hasShareIntent, shareIntent, resetShareIntent, router]);
 
   if (isPublicRoute) {
     return (
@@ -117,6 +135,10 @@ export default function RootLayout() {
               options={{ title: "Let's Decide" }}
             />
             <Stack.Screen name="privacy" options={{ title: "Privacy Policy" }} />
+            <Stack.Screen
+              name="share-target"
+              options={{ title: "Save to Forked", presentation: "modal" }}
+            />
           </Stack>
         )}
       </SafeAreaProvider>
