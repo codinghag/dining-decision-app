@@ -406,11 +406,11 @@ export default function AddRestaurantScreen() {
                         <Card>
                           <Text style={styles.confirmTitle}>{r.name}</Text>
                           <RestaurantTags
-                  cuisine={r.cuisine}
-                  priceLevel={r.price_level}
-                  rating={r.rating}
-                  ratingCount={r.rating_count}
-                />
+                            cuisine={r.cuisine}
+                            priceLevel={r.price_level}
+                            rating={r.rating}
+                            ratingCount={r.rating_count}
+                          />
                           {r.address ? (
                             <Text style={styles.confirmSub}>{r.address}</Text>
                           ) : null}

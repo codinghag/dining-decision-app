@@ -32,6 +32,7 @@ import { Button } from "../../../../components/Button";
 import { RestaurantTags } from "../../../../components/RestaurantTags";
 import { RestaurantPhoto } from "../../../../components/RestaurantPhoto";
 import { Confetti } from "../../../../components/Confetti";
+import { CountdownTimer } from "../../../../components/CountdownTimer";
 import { buildMapsUrl } from "../../../../lib/maps";
 import { isOpenNow } from "../../../../lib/hours";
 import { logEvent } from "../../../../lib/analytics";
@@ -39,13 +40,6 @@ import { colors, radius, shadow, spacing, type } from "../../../../lib/theme";
 
 const SWIPE_THRESHOLD = 110; // px of horizontal travel to count as a decision
 const DECIDE_DURATION_MS = 60_000; // each session runs 60s, then auto-finishes
-
-function formatCountdown(ms: number): string {
-  const totalSec = Math.ceil(ms / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
 
 export default function DecideScreen() {
   const { id: collectionId, sessionId } = useLocalSearchParams<{
@@ -220,28 +214,34 @@ export default function DecideScreen() {
     [voteCurrentCard, translateX, translateY],
   );
 
-  const pan = Gesture.Pan()
-    .onUpdate((e) => {
-      translateX.value = e.translationX;
-      translateY.value = e.translationY;
-    })
-    .onEnd((e) => {
-      if (Math.abs(e.translationX) > SWIPE_THRESHOLD) {
-        const dir = e.translationX > 0 ? "right" : "left";
-        // Fling the card off-screen, then hand back to JS to advance.
-        translateX.value = withTiming(
-          Math.sign(e.translationX) * width * 1.5,
-          { duration: 180 },
-          () => {
-            runOnJS(onSwiped)(dir);
-          },
-        );
-      } else {
-        // Snap back — not a decisive swipe.
-        translateX.value = withSpring(0);
-        translateY.value = withSpring(0);
-      }
-    });
+  // Memoized so re-renders (live vote updates, presence changes) don't hand
+  // GestureDetector a brand-new gesture object mid-pan.
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .onUpdate((e) => {
+          translateX.value = e.translationX;
+          translateY.value = e.translationY;
+        })
+        .onEnd((e) => {
+          if (Math.abs(e.translationX) > SWIPE_THRESHOLD) {
+            const dir = e.translationX > 0 ? "right" : "left";
+            // Fling the card off-screen, then hand back to JS to advance.
+            translateX.value = withTiming(
+              Math.sign(e.translationX) * width * 1.5,
+              { duration: 180 },
+              () => {
+                runOnJS(onSwiped)(dir);
+              },
+            );
+          } else {
+            // Snap back — not a decisive swipe.
+            translateX.value = withSpring(0);
+            translateY.value = withSpring(0);
+          }
+        }),
+    [translateX, translateY, width, onSwiped],
+  );
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [
@@ -278,33 +278,20 @@ export default function DecideScreen() {
   // --- Countdown timer -----------------------------------------------------
   // All members share the session's server created_at, so a deadline derived
   // from it keeps every client's countdown in sync without any extra state.
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    if (session?.status !== "active") return;
-    const t = setInterval(() => setNowMs(Date.now()), 500);
-    return () => clearInterval(t);
-  }, [session?.status]);
-
+  // The 500ms clock lives inside CountdownTimer so its tick re-renders only
+  // the pill, not this whole screen (deck + gesture + tallies).
   const deadlineMs = session
     ? new Date(session.created_at).getTime() + DECIDE_DURATION_MS
     : 0;
-  const remainingMs = Math.max(0, deadlineMs - nowMs);
 
   // When the clock runs out, whichever client reaches zero first completes the
   // session (the RPC is idempotent); realtime flips everyone to the result.
   const autoFinishedRef = useRef(false);
-  useEffect(() => {
-    if (
-      session?.status === "active" &&
-      deadlineMs > 0 &&
-      remainingMs === 0 &&
-      !autoFinishedRef.current &&
-      !finishing
-    ) {
-      autoFinishedRef.current = true;
-      onFinish();
-    }
-  }, [session?.status, deadlineMs, remainingMs, finishing, onFinish]);
+  const onTimerExpire = useCallback(() => {
+    if (autoFinishedRef.current || finishing) return;
+    autoFinishedRef.current = true;
+    onFinish();
+  }, [finishing, onFinish]);
 
   // Tap fallback (also useful on web where a drag gesture is awkward).
   function buttonVote(vote: boolean) {
@@ -398,13 +385,11 @@ export default function DecideScreen() {
       ) : (
         // ---- Voting view ----
         <>
-          <View style={styles.timerRow}>
-            <View style={[styles.timer, remainingMs <= 10_000 && styles.timerUrgent]}>
-              <Text style={[styles.timerText, remainingMs <= 10_000 && styles.timerTextUrgent]}>
-                ⏱ {formatCountdown(remainingMs)}
-              </Text>
-            </View>
-          </View>
+          <CountdownTimer
+            deadlineMs={deadlineMs}
+            running={session?.status === "active"}
+            onExpire={onTimerExpire}
+          />
 
           <View style={styles.deck}>
             {doneVoting ? (
@@ -484,18 +469,6 @@ export default function DecideScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, padding: spacing.base, gap: spacing.base },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  timerRow: { alignItems: "center" },
-  timer: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  timerUrgent: { backgroundColor: colors.passLight, borderColor: colors.pass },
-  timerText: { ...type.subtitle, color: colors.inkSecondary },
-  timerTextUrgent: { color: colors.pass },
   deck: { minHeight: 300, alignItems: "center", justifyContent: "center" },
   card: {
     width: "100%",

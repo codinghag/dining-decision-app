@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { invokeEdgeFunction } from "./supabase";
 import type { Coords } from "./location";
 
 // Normalized place shape returned by the edge functions. Maps onto the
@@ -34,6 +34,9 @@ export interface PlaceSearchResult {
 
 // Thin wrappers around the three Supabase Edge Functions. The app never talks
 // to Google directly — the Places API key lives only as a server-side secret.
+// All go through invokeEdgeFunction so the server's real error message (e.g.
+// "Could not resolve that link") surfaces instead of supabase-js's generic
+// "Edge Function returned a non-2xx status code".
 
 // `near` optionally biases results toward the given coordinates (see
 // lib/location.ts) -- purely additive, search still works without it.
@@ -41,26 +44,24 @@ export async function searchPlaces(
   query: string,
   near?: Coords,
 ): Promise<PlaceSearchResult[]> {
-  const { data, error } = await supabase.functions.invoke("places-search", {
-    body: { query, lat: near?.lat, lng: near?.lng },
-  });
-  if (error) throw error;
-  return (data?.results ?? []) as PlaceSearchResult[];
+  const data = await invokeEdgeFunction<{ results?: PlaceSearchResult[] }>(
+    "places-search",
+    { query, lat: near?.lat, lng: near?.lng },
+  );
+  return data?.results ?? [];
 }
 
 export async function getPlaceDetails(placeId: string): Promise<Place> {
-  const { data, error } = await supabase.functions.invoke("places-details", {
-    body: { placeId },
+  const data = await invokeEdgeFunction<{ place: Place }>("places-details", {
+    placeId,
   });
-  if (error) throw error;
-  return data.place as Place;
+  return data.place;
 }
 
 export async function resolveMapsLink(url: string): Promise<Place> {
-  const { data, error } = await supabase.functions.invoke(
+  const data = await invokeEdgeFunction<{ place: Place }>(
     "places-resolve-link",
-    { body: { url } },
+    { url },
   );
-  if (error) throw error;
-  return data.place as Place;
+  return data.place;
 }

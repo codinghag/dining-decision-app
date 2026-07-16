@@ -1,30 +1,6 @@
-import { FunctionsHttpError } from "@supabase/supabase-js";
-import { getUserId, supabase } from "./supabase";
+import { getUserId, invokeEdgeFunction, supabase } from "./supabase";
 import { logEvent } from "./analytics";
 import type { Restaurant } from "./db";
-
-// supabase-js nulls `data` and throws FunctionsHttpError (with the raw
-// Response in `.context`) on any non-2xx reply — which is how every edge
-// function in this app reports an error — so the `{ error: "..." }` message
-// they craft has to be unwrapped from the thrown error, not read off `data`
-// (a `data?.error` check there is unreachable dead code).
-async function invokeEdgeFunction<T>(
-  name: string,
-  body: Record<string, unknown>,
-): Promise<T> {
-  const { data, error } = await supabase.functions.invoke(name, { body });
-  if (error) {
-    if (error instanceof FunctionsHttpError) {
-      const message: string | undefined = await error.context
-        .json()
-        .then((b: { error?: string }) => b?.error)
-        .catch(() => undefined);
-      if (message) throw new Error(message);
-    }
-    throw error;
-  }
-  return data as T;
-}
 
 // A "Decide Now" session: a fixed set of (up to) 3 restaurants the group votes
 // on with a swipe. The vote data underneath is plain binary counts — no ranking.

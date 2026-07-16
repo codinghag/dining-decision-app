@@ -1,5 +1,9 @@
 import "react-native-url-polyfill/auto";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  FunctionsHttpError,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
@@ -34,23 +38,30 @@ export const supabase: SupabaseClient = createClient(
   },
 );
 
-// Ensure there is always a signed-in (anonymous) user. Called once on cold
-// start from the root layout. Anonymous users keep a stable auth.users.id, so
-// they can later "claim"/upgrade to a permanent account without losing data.
-export async function ensureAnonymousSession(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
-  if (data.session?.user) {
-    return data.session.user.id;
-  }
-  const { data: signInData, error } = await supabase.auth.signInAnonymously();
-  if (error) {
-    console.warn("[supabase] anonymous sign-in failed:", error.message);
-    return null;
-  }
-  return signInData.user?.id ?? null;
-}
-
 export async function getUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser();
   return data.user?.id ?? null;
+}
+
+// supabase-js nulls `data` and throws FunctionsHttpError (with the raw
+// Response in `.context`) on any non-2xx reply — which is how every edge
+// function in this app reports an error — so the `{ error: "..." }` message
+// they craft has to be unwrapped from the thrown error, not read off `data`
+// (a `data?.error` check there is unreachable dead code).
+export async function invokeEdgeFunction<T>(
+  name: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(name, { body });
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const message: string | undefined = await error.context
+        .json()
+        .then((b: { error?: string }) => b?.error)
+        .catch(() => undefined);
+      if (message) throw new Error(message);
+    }
+    throw error;
+  }
+  return data as T;
 }
