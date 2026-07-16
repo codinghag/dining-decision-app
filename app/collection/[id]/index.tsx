@@ -18,6 +18,7 @@ import {
 } from "../../../lib/db";
 import { getUserId } from "../../../lib/supabase";
 import { shareCollectionInvite } from "../../../lib/invite";
+import { RestaurantSheet } from "../../../components/RestaurantSheet";
 import { startDecideSession } from "../../../lib/decide";
 import { getCurrentLocation, type Coords } from "../../../lib/location";
 import { pickWildcardPlace } from "../../../lib/wildcard";
@@ -46,6 +47,8 @@ export default function CollectionDetailScreen() {
   const [deleting, setDeleting] = useState(false);
   const [restaurantToRemove, setRestaurantToRemove] = useState<Restaurant | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [wildcard, setWildcard] = useState(false);
   const [location, setLocation] = useState<Coords | null>(null);
   useEffect(() => {
@@ -79,8 +82,14 @@ export default function CollectionDetailScreen() {
 
   async function onShare() {
     if (!id || !collection) return;
+    setShareFeedback(null);
     try {
-      await shareCollectionInvite(id, collection.name);
+      const outcome = await shareCollectionInvite(id, collection.name);
+      // Clipboard copies are invisible — say so, briefly.
+      if (outcome === "copied") {
+        setShareFeedback("Invite link copied to clipboard ✓");
+        setTimeout(() => setShareFeedback(null), 4000);
+      }
     } catch (e) {
       setError(String(e));
     }
@@ -243,7 +252,17 @@ export default function CollectionDetailScreen() {
         </Text>
       ) : null}
 
+      {shareFeedback ? (
+        <Text style={styles.shareFeedback} accessibilityLiveRegion="polite">
+          {shareFeedback}
+        </Text>
+      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <RestaurantSheet
+        restaurant={selectedRestaurant}
+        onClose={() => setSelectedRestaurant(null)}
+      />
 
       {loading ? (
         <ActivityIndicator style={{ marginTop: 24 }} color={colors.primary} />
@@ -256,8 +275,13 @@ export default function CollectionDetailScreen() {
             <EmptyState message="No restaurants yet. Add one to build this collection." />
           }
           renderItem={({ item }) => (
-            <Card elevated>
-              <View style={styles.cardRow}>
+            <Pressable
+              onPress={() => setSelectedRestaurant(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`View details for ${item.name}`}
+            >
+              <Card elevated>
+                <View style={styles.cardRow}>
                 {item.photo_name ? (
                   <RestaurantPhoto photoName={item.photo_name} variant="thumb" />
                 ) : null}
@@ -293,9 +317,10 @@ export default function CollectionDetailScreen() {
                       ) : null}
                     </View>
                   ) : null}
+                  </View>
                 </View>
-              </View>
-            </Card>
+              </Card>
+            </Pressable>
           )}
         />
       )}
@@ -337,4 +362,5 @@ const themed = themedStyles((colors, type) => ({
   cardMetaRow: { flexDirection: "row", gap: spacing.md, flexWrap: "wrap", marginTop: spacing.xs },
   cardMeta: { ...type.caption },
   error: { color: colors.pass, marginTop: spacing.sm },
+  shareFeedback: { ...type.body, color: colors.yes, marginTop: spacing.sm },
 }));
