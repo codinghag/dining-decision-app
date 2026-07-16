@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 import {
   Link,
   Stack,
@@ -29,11 +29,13 @@ import { EmptyState } from "../../../components/EmptyState";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { RestaurantTags } from "../../../components/RestaurantTags";
 import { RestaurantPhoto } from "../../../components/RestaurantPhoto";
-import { colors, spacing, type } from "../../../lib/theme";
+import { radius, spacing, themedStyles, useTheme } from "../../../lib/theme";
 
 export default function CollectionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { scheme, colors } = useTheme();
+  const styles = themed[scheme];
   const [collection, setCollection] = useState<Collection | null>(null);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,11 +157,21 @@ export default function CollectionDetailScreen() {
           headerRight: () => (
             <View style={styles.headerActions}>
               {isOwner ? (
-                <Pressable onPress={() => setConfirmDeleteVisible(true)} hitSlop={12}>
+                <Pressable
+                  onPress={() => setConfirmDeleteVisible(true)}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete this collection"
+                >
                   <Text style={styles.headerDelete}>Delete</Text>
                 </Pressable>
               ) : null}
-              <Pressable onPress={onShare} hitSlop={12}>
+              <Pressable
+                onPress={onShare}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Share an invite to this collection"
+              >
                 <Text style={styles.headerShare}>Share</Text>
               </Pressable>
             </View>
@@ -207,12 +219,21 @@ export default function CollectionDetailScreen() {
         <Pressable
           style={[styles.wildcardChip, wildcard && styles.wildcardChipActive]}
           onPress={() => setWildcard((w) => !w)}
+          hitSlop={8}
+          accessibilityRole="switch"
+          accessibilityLabel="Add a wildcard restaurant to the next decision"
+          accessibilityState={{ checked: wildcard }}
         >
           <Text style={[styles.wildcardText, wildcard && styles.wildcardTextActive]}>
             🎲 {wildcard ? "Wildcard on" : "Add a wildcard"}
           </Text>
         </Pressable>
-        <Pressable onPress={() => router.push(`/collection/${id}/stats`)}>
+        <Pressable
+          onPress={() => router.push(`/collection/${id}/stats`)}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="View group stats"
+        >
           <Text style={styles.statsLinkText}>📊 Group stats</Text>
         </Pressable>
       </View>
@@ -243,7 +264,12 @@ export default function CollectionDetailScreen() {
                 <View style={styles.cardBody}>
                   <View style={styles.cardHeader}>
                     <Text style={styles.cardTitle}>{item.name}</Text>
-                    <Pressable onPress={() => setRestaurantToRemove(item)} hitSlop={8}>
+                    <Pressable
+                      onPress={() => setRestaurantToRemove(item)}
+                      hitSlop={12}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${item.name} from this collection`}
+                    >
                       <Text style={styles.cardRemove}>Remove</Text>
                     </Pressable>
                   </View>
@@ -277,7 +303,7 @@ export default function CollectionDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const themed = themedStyles((colors, type) => ({
   topRow: { flexDirection: "row", gap: spacing.sm },
   headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   headerShare: { color: colors.primary, fontWeight: "600", fontSize: 16 },
@@ -292,7 +318,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    borderRadius: 999,
+    borderRadius: radius.full,
     borderWidth: 1.5,
     borderColor: colors.border,
   },
@@ -311,4 +337,4 @@ const styles = StyleSheet.create({
   cardMetaRow: { flexDirection: "row", gap: spacing.md, flexWrap: "wrap", marginTop: spacing.xs },
   cardMeta: { ...type.caption },
   error: { color: colors.pass, marginTop: spacing.sm },
-});
+}));

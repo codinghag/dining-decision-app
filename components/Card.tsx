@@ -1,5 +1,5 @@
-import { StyleSheet, View, type ViewProps } from "react-native";
-import { colors, radius, shadow, spacing } from "../lib/theme";
+import { View, type ViewProps } from "react-native";
+import { radius, shadow, spacing, themedStyles, useTheme } from "../lib/theme";
 
 interface CardProps extends ViewProps {
   elevated?: boolean;
@@ -9,6 +9,8 @@ interface CardProps extends ViewProps {
 // results, and confirm boxes — replaces the near-identical ad hoc card
 // styles each screen used to define separately.
 export function Card({ elevated = false, style, children, ...rest }: CardProps) {
+  const { scheme } = useTheme();
+  const styles = themed[scheme];
   return (
     <View style={[styles.base, elevated && styles.elevated, style]} {...rest}>
       {children}
@@ -16,7 +18,7 @@ export function Card({ elevated = false, style, children, ...rest }: CardProps) 
   );
 }
 
-const styles = StyleSheet.create({
+const themed = themedStyles((colors) => ({
   base: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -30,4 +32,4 @@ const styles = StyleSheet.create({
     boxShadow: shadow.card,
     borderColor: "transparent",
   },
-});
+}));

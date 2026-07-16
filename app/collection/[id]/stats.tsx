@@ -1,13 +1,15 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { getCollectionStats, type CollectionStats } from "../../../lib/stats";
 import { Card } from "../../../components/Card";
 import { EmptyState } from "../../../components/EmptyState";
-import { colors, spacing, type } from "../../../lib/theme";
+import { spacing, themedStyles, useTheme } from "../../../lib/theme";
 
 export default function StatsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { scheme, colors } = useTheme();
+  const styles = themed[scheme];
   const [stats, setStats] = useState<CollectionStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -147,7 +149,7 @@ function formatDecisionDate(iso: string | null): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-const styles = StyleSheet.create({
+const themed = themedStyles((colors, type) => ({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.base, gap: spacing.base },
   center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background },
@@ -164,4 +166,4 @@ const styles = StyleSheet.create({
   rowValue: { ...type.subtitle, color: colors.primary },
   rowSub: { ...type.caption, color: colors.inkTertiary, fontWeight: "400" },
   error: { color: colors.pass },
-});
+}));

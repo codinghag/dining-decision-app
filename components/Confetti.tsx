@@ -7,17 +7,19 @@ import Animated, {
   withDelay,
   withTiming,
 } from "react-native-reanimated";
-import { colors } from "../lib/theme";
+import { palettes } from "../lib/theme";
 
 // A lightweight confetti burst built on reanimated (already a dependency via
 // the swipe deck), so there's no new native module to keep version-matched.
 // Works on web and native. Purely decorative -- rendered as a pointer-events
 // -none overlay so it never blocks the buttons underneath.
 
+// Fixed bright pieces (light-palette accents + gold/blue) — saturated
+// confetti reads fine on both light and dark grounds, no theming needed.
 const PIECE_COLORS = [
-  colors.primary,
-  colors.yes,
-  colors.pass,
+  palettes.light.primary,
+  palettes.light.yes,
+  palettes.light.pass,
   "#F5C542", // gold
   "#4B9CE2", // blue
 ];

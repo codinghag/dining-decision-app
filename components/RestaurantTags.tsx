@@ -1,7 +1,7 @@
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { CuisineBadge } from "./CuisineBadge";
 import { PriceBadge } from "./PriceBadge";
-import { colors, radius, spacing, type } from "../lib/theme";
+import { radius, spacing, themedStyles, useTheme } from "../lib/theme";
 
 interface RestaurantTagsProps {
   cuisine?: string | null;
@@ -22,16 +22,25 @@ export function RestaurantTags({
   openNow,
   style,
 }: RestaurantTagsProps) {
+  const { scheme } = useTheme();
+  const styles = themed[scheme];
   if (!cuisine && !priceLevel && !rating && openNow == null) return null;
   return (
     <View style={[styles.row, style]}>
       {cuisine ? <CuisineBadge cuisine={cuisine} /> : null}
       {priceLevel ? <PriceBadge level={priceLevel} /> : null}
       {rating ? (
-        <View style={styles.rating}>
+        <View
+          style={styles.rating}
+          accessibilityLabel={`Rated ${rating.toFixed(1)} stars${
+            ratingCount ? ` from ${ratingCount} reviews` : ""
+          }`}
+        >
           <Text style={styles.ratingText}>
             ★ {rating.toFixed(1)}
-            {ratingCount ? <Text style={styles.ratingCount}> ({formatCount(ratingCount)})</Text> : null}
+            {ratingCount ? (
+              <Text style={styles.ratingCount}> ({formatCount(ratingCount)})</Text>
+            ) : null}
           </Text>
         </View>
       ) : null}
@@ -50,12 +59,12 @@ function formatCount(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 }
 
-const styles = StyleSheet.create({
+const themed = themedStyles((colors, type) => ({
   row: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
     gap: spacing.xs,
-    alignItems: "center",
+    alignItems: "center" as const,
   },
   rating: {
     backgroundColor: colors.surfaceMuted,
@@ -66,7 +75,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   ratingText: { ...type.label, color: colors.ink },
-  ratingCount: { ...type.label, color: colors.inkTertiary, fontWeight: "400" },
+  ratingCount: { ...type.label, color: colors.inkTertiary, fontWeight: "400" as const },
   pill: {
     borderRadius: radius.full,
     paddingHorizontal: spacing.sm,
@@ -75,6 +84,10 @@ const styles = StyleSheet.create({
   pillText: { ...type.label },
   openYes: { backgroundColor: colors.yesLight },
   openYesText: { color: colors.yes },
-  openNo: { backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
+  openNo: {
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   openNoText: { color: colors.inkTertiary },
-});
+}));

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 import { Link, useFocusEffect, useRouter } from "expo-router";
 import { createCollection, listCollections, type Collection } from "../lib/db";
 import { getMyDisplayName, setMyDisplayName } from "../lib/profile";
@@ -8,10 +8,12 @@ import { ScreenContainer } from "../components/ScreenContainer";
 import { TextField } from "../components/TextField";
 import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
-import { colors, radius, shadow, spacing, type } from "../lib/theme";
+import { radius, shadow, spacing, themedStyles, useTheme } from "../lib/theme";
 
 export default function CollectionsScreen() {
   const router = useRouter();
+  const { scheme, colors } = useTheme();
+  const styles = themed[scheme];
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -107,6 +109,8 @@ export default function CollectionsScreen() {
         ) : displayName ? (
           <Pressable
             style={styles.identityRow}
+            accessibilityRole="button"
+            accessibilityLabel={`Edit your name, currently ${displayName}`}
             onPress={() => {
               setNameInput(displayName);
               setEditingName(true);
@@ -123,7 +127,12 @@ export default function CollectionsScreen() {
           <Text style={styles.syncTextMuted} numberOfLines={1}>
             {syncEmail}
           </Text>
-          <Pressable onPress={() => signOut()} hitSlop={8}>
+          <Pressable
+            onPress={() => signOut()}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+          >
             <Text style={styles.syncText}>Sign out</Text>
           </Pressable>
         </View>
@@ -155,9 +164,15 @@ export default function CollectionsScreen() {
           }
           renderItem={({ item }) => (
             <Link href={`/collection/${item.id}`} asChild>
-              <Pressable style={styles.row}>
+              <Pressable
+                style={styles.row}
+                accessibilityRole="button"
+                accessibilityLabel={`Open collection ${item.name}`}
+              >
                 <Text style={styles.rowTitle}>{item.name}</Text>
-                <Text style={styles.rowChevron}>›</Text>
+                <Text style={styles.rowChevron} accessible={false}>
+                  ›
+                </Text>
               </Pressable>
             </Link>
           )}
@@ -167,7 +182,7 @@ export default function CollectionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const themed = themedStyles((colors, type) => ({
   identity: { marginBottom: spacing.sm },
   identityRow: {
     flexDirection: "row",
@@ -201,4 +216,4 @@ const styles = StyleSheet.create({
   rowTitle: { ...type.subtitle },
   rowChevron: { fontSize: 22, color: colors.inkTertiary },
   error: { color: colors.pass, marginTop: spacing.sm },
-});
+}));

@@ -2,12 +2,11 @@ import {
   ActivityIndicator,
   Pressable,
   type PressableProps,
-  StyleSheet,
   Text,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { colors, radius, spacing } from "../lib/theme";
+import { radius, spacing, themedStyles, useTheme, type ColorPalette } from "../lib/theme";
 
 type Variant = "primary" | "dark" | "outline" | "danger-outline";
 
@@ -32,12 +31,17 @@ export function Button({
   style,
   ...rest
 }: ButtonProps) {
+  const { scheme, colors } = useTheme();
+  const styles = themed[scheme];
   const isDisabled = disabled || loading;
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!isDisabled, busy: loading }}
       style={({ pressed }) => [
         styles.base,
-        variantStyles[variant],
+        styles[variant],
         flex && styles.flex,
         isDisabled && styles.disabled,
         pressed && !isDisabled && styles.pressed,
@@ -47,41 +51,43 @@ export function Button({
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator color={textColor(variant)} />
+        <ActivityIndicator color={textColor(variant, colors)} />
       ) : (
-        <Text style={[styles.label, { color: textColor(variant) }]}>{label}</Text>
+        <Text style={[styles.label, { color: textColor(variant, colors) }]}>{label}</Text>
       )}
     </Pressable>
   );
 }
 
-function textColor(variant: Variant): string {
+function textColor(variant: Variant, colors: ColorPalette): string {
   switch (variant) {
     case "outline":
       return colors.primary;
     case "danger-outline":
       return colors.pass;
+    case "dark":
+      // "dark" is an ink-colored fill; on the dark palette ink is near-white,
+      // so the label must flip to the background color to stay readable.
+      return colors.background;
     default:
       return colors.white;
   }
 }
 
-const styles = StyleSheet.create({
+const themed = themedStyles((colors) => ({
   base: {
     borderRadius: radius.md,
     paddingVertical: 14,
     paddingHorizontal: spacing.base,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
+    minHeight: 48, // comfortable touch target
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    flexDirection: "row" as const,
   },
   flex: { flex: 1 },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.45 },
-  label: { fontSize: 16, fontWeight: "700" },
-});
-
-const variantStyles = StyleSheet.create({
+  label: { fontSize: 16, fontWeight: "700" as const },
   primary: { backgroundColor: colors.primary },
   dark: { backgroundColor: colors.ink },
   outline: {
@@ -94,4 +100,4 @@ const variantStyles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.pass,
   },
-});
+}));

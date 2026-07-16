@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -9,7 +9,7 @@ import { getAuthStatus } from "../lib/auth";
 import { logEvent } from "../lib/analytics";
 import { registerPushToken } from "../lib/push";
 import { SignInGate } from "../components/SignInGate";
-import { colors, type } from "../lib/theme";
+import { themedStyles, useTheme } from "../lib/theme";
 
 type Phase = "loading" | "gate" | "app";
 
@@ -17,6 +17,18 @@ export default function RootLayout() {
   const [phase, setPhase] = useState<Phase>("loading");
   const pathname = usePathname();
   const isPublicRoute = pathname === "/privacy";
+  const { scheme, colors } = useTheme();
+  const styles = themed[scheme];
+  // Status bar icons flip against the themed background; screen headers and
+  // content grounds follow the palette.
+  const statusBarStyle = scheme === "dark" ? "light" : "dark";
+  const screenOptions = {
+    headerStyle: { backgroundColor: colors.background },
+    headerTintColor: colors.ink,
+    headerTitleStyle: { fontWeight: "700" as const },
+    headerShadowVisible: false,
+    contentStyle: { backgroundColor: colors.background },
+  };
 
   // The app is gated on a *permanent* (email-linked) session. An anonymous
   // session or no session shows the sign-in gate; the gate migrates an
@@ -50,16 +62,8 @@ export default function RootLayout() {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <StatusBar style="dark" />
-          <Stack
-            screenOptions={{
-              headerStyle: { backgroundColor: colors.background },
-              headerTintColor: colors.ink,
-              headerTitleStyle: { fontWeight: "700" },
-              headerShadowVisible: false,
-              contentStyle: { backgroundColor: colors.background },
-            }}
-          >
+          <StatusBar style={statusBarStyle} />
+          <Stack screenOptions={screenOptions}>
             <Stack.Screen name="privacy" options={{ title: "Privacy Policy" }} />
           </Stack>
         </SafeAreaProvider>
@@ -81,19 +85,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
+        <StatusBar style={statusBarStyle} />
         {phase === "gate" ? (
           <SignInGate onSignedIn={evaluate} />
         ) : (
-          <Stack
-            screenOptions={{
-              headerStyle: { backgroundColor: colors.background },
-              headerTintColor: colors.ink,
-              headerTitleStyle: { fontWeight: "700" },
-              headerShadowVisible: false,
-              contentStyle: { backgroundColor: colors.background },
-            }}
-          >
+          <Stack screenOptions={screenOptions}>
             <Stack.Screen name="index" options={{ title: "Collections" }} />
             <Stack.Screen
               name="collection/[id]/index"
@@ -123,7 +119,7 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const themed = themedStyles((colors, type) => ({
   loading: {
     flex: 1,
     alignItems: "center",
@@ -134,4 +130,4 @@ const styles = StyleSheet.create({
   loadingLogo: { fontSize: 44, marginBottom: 4 },
   loadingBrand: { ...type.title, marginBottom: 4 },
   loadingText: { ...type.body, color: colors.inkSecondary },
-});
+}));

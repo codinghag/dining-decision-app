@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import {
@@ -18,7 +18,7 @@ import { TextField } from "../../../components/TextField";
 import { Button } from "../../../components/Button";
 import { Card } from "../../../components/Card";
 import { RestaurantTags } from "../../../components/RestaurantTags";
-import { colors, radius, spacing, type } from "../../../lib/theme";
+import { radius, spacing, themedStyles, useTheme } from "../../../lib/theme";
 
 type Tab = "link" | "search" | "quick_add" | "import";
 
@@ -31,6 +31,8 @@ interface ImportRowState {
 export default function AddRestaurantScreen() {
   const { id: collectionId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { scheme, colors } = useTheme();
+  const styles = themed[scheme];
   const [tab, setTab] = useState<Tab>("search");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -207,6 +209,9 @@ export default function AddRestaurantScreen() {
           <Pressable
             key={key}
             style={[styles.tab, tab === key && styles.tabActive]}
+            accessibilityRole="button"
+            accessibilityLabel={`${label} tab`}
+            accessibilityState={{ selected: tab === key }}
             onPress={() => {
               setTab(key);
               setError(null);
@@ -280,7 +285,12 @@ export default function AddRestaurantScreen() {
           </View>
 
           {results.map((r) => (
-            <Pressable key={r.google_place_id} onPress={() => onPickResult(r)}>
+            <Pressable
+              key={r.google_place_id}
+              onPress={() => onPickResult(r)}
+              accessibilityRole="button"
+              accessibilityLabel={`Save ${r.name} to this collection`}
+            >
               <Card>
                 <Text style={styles.confirmTitle}>{r.name}</Text>
                 <RestaurantTags
@@ -323,6 +333,9 @@ export default function AddRestaurantScreen() {
               <Pressable
                 key={level}
                 style={[styles.priceOption, quickPriceLevel === level && styles.priceOptionActive]}
+                accessibilityRole="button"
+                accessibilityLabel={`Price level ${level} of 4`}
+                accessibilityState={{ selected: quickPriceLevel === level }}
                 onPress={() => setQuickPriceLevel(quickPriceLevel === level ? null : level)}
               >
                 <Text
@@ -402,7 +415,12 @@ export default function AddRestaurantScreen() {
                       />
                     </View>
                     {row.results.map((r) => (
-                      <Pressable key={r.google_place_id} onPress={() => onImportPick(link, r)}>
+                      <Pressable
+                        key={r.google_place_id}
+                        onPress={() => onImportPick(link, r)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Save ${r.name} to this collection`}
+                      >
                         <Card>
                           <Text style={styles.confirmTitle}>{r.name}</Text>
                           <RestaurantTags
@@ -433,7 +451,7 @@ export default function AddRestaurantScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const themed = themedStyles((colors, type) => ({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.base, gap: spacing.md },
   tabs: {
@@ -473,4 +491,4 @@ const styles = StyleSheet.create({
   importUrl: { ...type.caption },
   importSaved: { ...type.body, color: colors.yes, fontWeight: "600" },
   importSkipped: { ...type.body, color: colors.inkTertiary },
-});
+}));

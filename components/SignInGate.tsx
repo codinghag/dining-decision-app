@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, Text } from "react-native";
 import {
   confirmLinkCode,
   confirmSignInCode,
@@ -10,7 +10,7 @@ import {
 } from "../lib/auth";
 import { TextField } from "./TextField";
 import { Button } from "./Button";
-import { colors, spacing, type } from "../lib/theme";
+import { spacing, themedStyles, useTheme } from "../lib/theme";
 
 type Step = "email" | "code";
 type OtpType = "email" | "email_change";
@@ -20,6 +20,8 @@ type OtpType = "email" | "email_change";
 // session is anonymous -- see onSend). Rendered by the root layout before the
 // app when there's no permanent session, so it isn't a router screen.
 export function SignInGate({ onSignedIn }: { onSignedIn: () => void }) {
+  const { scheme } = useTheme();
+  const styles = themed[scheme];
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -87,12 +89,24 @@ export function SignInGate({ onSignedIn }: { onSignedIn: () => void }) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.logo}>🍽️</Text>
-      <Text style={styles.brand}>Forked</Text>
+      <Text accessible={false} style={styles.logo}>
+        🍽️
+      </Text>
+      <Text style={styles.brand} accessibilityRole="header">
+        Forked
+      </Text>
       <Text style={styles.tagline}>Sign in to save your collections and use Forked on any device.</Text>
 
-      {info ? <Text style={styles.info}>{info}</Text> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {info ? (
+        <Text style={styles.info} accessibilityLiveRegion="polite">
+          {info}
+        </Text>
+      ) : null}
+      {error ? (
+        <Text style={styles.error} accessibilityLiveRegion="assertive">
+          {error}
+        </Text>
+      ) : null}
 
       {step === "email" ? (
         <>
@@ -103,6 +117,7 @@ export function SignInGate({ onSignedIn }: { onSignedIn: () => void }) {
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
+            autoComplete="email"
             onSubmitEditing={onSend}
             returnKeyType="send"
           />
@@ -115,6 +130,7 @@ export function SignInGate({ onSignedIn }: { onSignedIn: () => void }) {
             value={code}
             onChangeText={setCode}
             keyboardType="number-pad"
+            autoComplete="one-time-code"
             onSubmitEditing={onVerify}
             returnKeyType="done"
             autoFocus
@@ -153,17 +169,22 @@ function humanize(err: unknown): string {
   return msg;
 }
 
-const styles = StyleSheet.create({
+const themed = themedStyles((colors, type) => ({
   container: { flex: 1, backgroundColor: colors.background },
   content: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: "center" as const,
     padding: spacing.lg,
     gap: spacing.md,
   },
-  logo: { fontSize: 48, textAlign: "center" },
-  brand: { ...type.title, textAlign: "center" },
-  tagline: { ...type.body, color: colors.inkSecondary, textAlign: "center", marginBottom: spacing.sm },
-  info: { ...type.body, color: colors.yes, textAlign: "center" },
-  error: { color: colors.pass, textAlign: "center" },
-});
+  logo: { fontSize: 48, textAlign: "center" as const },
+  brand: { ...type.title, textAlign: "center" as const },
+  tagline: {
+    ...type.body,
+    color: colors.inkSecondary,
+    textAlign: "center" as const,
+    marginBottom: spacing.sm,
+  },
+  info: { ...type.body, color: colors.yes, textAlign: "center" as const },
+  error: { color: colors.pass, textAlign: "center" as const },
+}));

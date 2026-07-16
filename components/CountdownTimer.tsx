@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { colors, radius, spacing, type } from "../lib/theme";
+import { Text, View } from "react-native";
+import { radius, spacing, themedStyles, useTheme } from "../lib/theme";
 
 const URGENT_MS = 10_000;
 
@@ -25,6 +25,8 @@ export const CountdownTimer = memo(function CountdownTimer({
   running,
   onExpire,
 }: CountdownTimerProps) {
+  const { scheme } = useTheme();
+  const styles = themed[scheme];
   const [nowMs, setNowMs] = useState(() => Date.now());
   const expiredRef = useRef(false);
 
@@ -46,7 +48,11 @@ export const CountdownTimer = memo(function CountdownTimer({
   const urgent = remainingMs <= URGENT_MS;
   return (
     <View style={styles.row}>
-      <View style={[styles.timer, urgent && styles.timerUrgent]}>
+      <View
+        style={[styles.timer, urgent && styles.timerUrgent]}
+        accessibilityRole="timer"
+        accessibilityLabel={`${formatCountdown(remainingMs)} remaining`}
+      >
         <Text style={[styles.timerText, urgent && styles.timerTextUrgent]}>
           ⏱ {formatCountdown(remainingMs)}
         </Text>
@@ -55,8 +61,8 @@ export const CountdownTimer = memo(function CountdownTimer({
   );
 });
 
-const styles = StyleSheet.create({
-  row: { alignItems: "center" },
+const themed = themedStyles((colors, type) => ({
+  row: { alignItems: "center" as const },
   timer: {
     backgroundColor: colors.surfaceMuted,
     borderRadius: radius.full,
@@ -68,4 +74,4 @@ const styles = StyleSheet.create({
   timerUrgent: { backgroundColor: colors.passLight, borderColor: colors.pass },
   timerText: { ...type.subtitle, color: colors.inkSecondary },
   timerTextUrgent: { color: colors.pass },
-});
+}));

@@ -1,6 +1,6 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, Text, View } from "react-native";
 import { Button } from "./Button";
-import { colors, radius, shadow, spacing, type } from "../lib/theme";
+import { radius, shadow, spacing, themedStyles, useTheme } from "../lib/theme";
 
 interface ConfirmDialogProps {
   visible: boolean;
@@ -26,11 +26,24 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { scheme } = useTheme();
+  const styles = themed[scheme];
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={styles.backdrop} onPress={onCancel}>
-        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
-          <Text style={styles.title}>{title}</Text>
+      <Pressable
+        style={styles.backdrop}
+        onPress={onCancel}
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss dialog"
+      >
+        <Pressable
+          style={styles.card}
+          onPress={(e) => e.stopPropagation()}
+          accessibilityViewIsModal
+        >
+          <Text style={styles.title} accessibilityRole="header">
+            {title}
+          </Text>
           <Text style={styles.message}>{message}</Text>
           <View style={styles.buttons}>
             <Button label="Cancel" variant="outline" flex onPress={onCancel} />
@@ -48,16 +61,16 @@ export function ConfirmDialog({
   );
 }
 
-const styles = StyleSheet.create({
+const themed = themedStyles((colors, type) => ({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(36, 31, 27, 0.4)",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
     padding: spacing.lg,
   },
   card: {
-    width: "100%",
+    width: "100%" as const,
     maxWidth: 360,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -67,5 +80,5 @@ const styles = StyleSheet.create({
   },
   title: { ...type.heading },
   message: { ...type.body, color: colors.inkSecondary, marginBottom: spacing.sm },
-  buttons: { flexDirection: "row", gap: spacing.sm },
-});
+  buttons: { flexDirection: "row" as const, gap: spacing.sm },
+}));

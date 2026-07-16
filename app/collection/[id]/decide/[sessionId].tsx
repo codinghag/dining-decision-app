@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
-  StyleSheet,
   Text,
   View,
   useWindowDimensions,
@@ -36,7 +35,7 @@ import { CountdownTimer } from "../../../../components/CountdownTimer";
 import { buildMapsUrl } from "../../../../lib/maps";
 import { isOpenNow } from "../../../../lib/hours";
 import { logEvent } from "../../../../lib/analytics";
-import { colors, radius, shadow, spacing, type } from "../../../../lib/theme";
+import { radius, shadow, spacing, themedStyles, useTheme } from "../../../../lib/theme";
 
 const SWIPE_THRESHOLD = 110; // px of horizontal travel to count as a decision
 const DECIDE_DURATION_MS = 60_000; // each session runs 60s, then auto-finishes
@@ -48,6 +47,8 @@ export default function DecideScreen() {
   }>();
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const { scheme, colors } = useTheme();
+  const styles = themed[scheme];
 
   const [session, setSession] = useState<DecideSession | null>(null);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -351,7 +352,11 @@ export default function DecideScreen() {
           <Confetti />
           <Text style={styles.trophy}>🏆</Text>
           <Text style={styles.resultLabel}>The group picked</Text>
-          <Animated.Text style={[styles.resultName, winnerNameStyle]}>
+          <Animated.Text
+            style={[styles.resultName, winnerNameStyle]}
+            accessibilityRole="header"
+            accessibilityLiveRegion="polite"
+          >
             {winner?.name ?? "No winner"}
           </Animated.Text>
           {winner ? (
@@ -401,7 +406,11 @@ export default function DecideScreen() {
               </View>
             ) : (
               <GestureDetector gesture={pan}>
-                <Animated.View style={[styles.card, cardStyle]}>
+                <Animated.View
+                  style={[styles.card, cardStyle]}
+                  accessible
+                  accessibilityLabel={`${current?.name ?? "Restaurant"}. Swipe right to vote in, swipe left to pass, or use the Pass and In buttons below.`}
+                >
                   <Animated.View style={[styles.stamp, styles.stampYes, yesOpacity]}>
                     <Text style={styles.stampYesText}>IN</Text>
                   </Animated.View>
@@ -466,7 +475,7 @@ export default function DecideScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const themed = themedStyles((colors, type) => ({
   container: { flex: 1, backgroundColor: colors.background, padding: spacing.base, gap: spacing.base },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   deck: { minHeight: 300, alignItems: "center", justifyContent: "center" },
@@ -538,4 +547,4 @@ const styles = StyleSheet.create({
   resultTags: { justifyContent: "center" },
   resultSub: { ...type.body, color: colors.inkSecondary, textAlign: "center" },
   error: { color: colors.pass },
-});
+}));
