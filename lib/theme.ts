@@ -1,63 +1,71 @@
-// Single source of design tokens for the app. Every screen and UI primitive
-// pulls colors/spacing/radius/type/shadow from here instead of hard-coding
-// its own values, so the look stays consistent as screens are added.
+// Single source of design tokens. Every screen and UI primitive pulls
+// colors/spacing/radius/type/shadow from here, so the look stays consistent.
+//
+// Design language: "editorial menu" — warm paper ground, deep green primary,
+// saffron accent, serif display headings (like a good restaurant menu), pill
+// buttons, photo-forward cards.
 //
 // Two palettes (light + dark) share one shape; components define their
 // styles once via themedStyles() — which bakes BOTH stylesheets at module
-// load — and pick the active one with useTheme(). This keeps StyleSheet
-// creation out of render while still following the OS appearance setting.
+// load — and pick the active one with useTheme().
 
-import { StyleSheet, useColorScheme } from "react-native";
+import { Platform, StyleSheet, useColorScheme } from "react-native";
 
 const light = {
-  // Warm, food-themed accent — used for primary actions and the "in" swipe.
-  primary: "#E8623B",
-  primaryDark: "#C94E2B",
-  primaryLight: "#FDECE5",
+  // Deep menu-green — primary actions, links, the "in" vote.
+  primary: "#1E6B47",
+  primaryDark: "#145235",
+  primaryLight: "#E3EFE7",
 
-  // Swipe / vote semantics.
-  yes: "#2BAA6E",
-  yesLight: "#E6F6EE",
-  pass: "#E5484D",
-  passLight: "#FCEAEA",
+  // Saffron — warm highlight for stats, tallies, and moments of delight.
+  accent: "#D99A2B",
+  accentLight: "#F9EFDB",
 
-  ink: "#241F1B",
-  inkSecondary: "#6B5F55",
-  inkTertiary: "#9C8F82",
+  // Vote semantics. "Yes" leans on the green family; "pass" is brick red.
+  yes: "#1E6B47",
+  yesLight: "#E3EFE7",
+  pass: "#B8433A",
+  passLight: "#F7E6E4",
 
-  background: "#FFFBF8",
+  ink: "#1D1A16",
+  inkSecondary: "#5F594F",
+  inkTertiary: "#958D80",
+
+  background: "#F6F3EC",
   surface: "#FFFFFF",
-  surfaceMuted: "#F7F0E9",
-  border: "#ECE1D6",
-  borderStrong: "#DFD0C0",
+  surfaceMuted: "#EEE9DF",
+  border: "#E2DCCF",
+  borderStrong: "#CFC6B4",
 
   white: "#FFFFFF",
 } as const;
 
 export type ColorPalette = { [K in keyof typeof light]: string };
 
-// Warm near-black rather than pure gray, mirroring the cream-not-white
-// choice of the light palette. Accents are nudged lighter so they keep
-// WCAG-ish contrast against the dark ground.
+// Candlelit version of the same menu: deep warm charcoal, green and saffron
+// lifted to hold contrast.
 const dark: ColorPalette = {
-  primary: "#F07B55",
-  primaryDark: "#F49375",
-  primaryLight: "#3B2A22",
+  primary: "#57B183",
+  primaryDark: "#79C69E",
+  primaryLight: "#1E2E26",
 
-  yes: "#4CC38A",
-  yesLight: "#1E322A",
-  pass: "#F2666B",
-  passLight: "#3B2527",
+  accent: "#E4B45E",
+  accentLight: "#332A1A",
 
-  ink: "#F2EAE2",
-  inkSecondary: "#BFB1A3",
-  inkTertiary: "#8F8275",
+  yes: "#57B183",
+  yesLight: "#1E2E26",
+  pass: "#E07067",
+  passLight: "#392422",
 
-  background: "#181411",
-  surface: "#221D19",
-  surfaceMuted: "#2C2520",
-  border: "#3A322B",
-  borderStrong: "#4C4238",
+  ink: "#EFEAE1",
+  inkSecondary: "#B5AC9E",
+  inkTertiary: "#847B6E",
+
+  background: "#161310",
+  surface: "#201C17",
+  surfaceMuted: "#2A241E",
+  border: "#39322A",
+  borderStrong: "#4B4238",
 
   white: "#FFFFFF",
 };
@@ -75,21 +83,51 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 22,
+  sm: 10,
+  md: 14,
+  lg: 20,
+  xl: 28,
   full: 999,
 } as const;
 
+// Serif display face for headings — Georgia on web/iOS, the system serif
+// (Noto Serif) on Android. Body copy stays on the system sans.
+export const fonts = {
+  display: Platform.select({
+    android: "serif",
+    web: "Georgia, 'Times New Roman', serif",
+    default: "Georgia",
+  }) as string,
+};
+
 function makeType(c: ColorPalette) {
   return {
-    title: { fontSize: 28, fontWeight: "800" as const, color: c.ink },
-    heading: { fontSize: 20, fontWeight: "700" as const, color: c.ink },
+    // Serif display tiers — screen titles, section headings, dish/place names.
+    title: {
+      fontSize: 32,
+      fontWeight: "700" as const,
+      color: c.ink,
+      fontFamily: fonts.display,
+      letterSpacing: -0.5,
+    },
+    heading: {
+      fontSize: 22,
+      fontWeight: "700" as const,
+      color: c.ink,
+      fontFamily: fonts.display,
+      letterSpacing: -0.3,
+    },
+    // Sans tiers — UI copy.
     subtitle: { fontSize: 16, fontWeight: "600" as const, color: c.ink },
     body: { fontSize: 15, fontWeight: "400" as const, color: c.ink },
     caption: { fontSize: 13, fontWeight: "400" as const, color: c.inkTertiary },
-    label: { fontSize: 13, fontWeight: "600" as const, color: c.inkSecondary },
+    label: {
+      fontSize: 12,
+      fontWeight: "700" as const,
+      color: c.inkSecondary,
+      letterSpacing: 0.6,
+      textTransform: "uppercase" as const,
+    },
   };
 }
 
@@ -103,8 +141,8 @@ const typeBy: Record<Scheme, Typography> = {
 // RN 0.86 (new arch) supports the unified `boxShadow` string style prop
 // cross-platform, replacing the deprecated shadow*/elevation combo.
 export const shadow = {
-  card: "0px 2px 8px rgba(36, 31, 27, 0.06)",
-  raised: "0px 8px 24px rgba(36, 31, 27, 0.12)",
+  card: "0px 2px 10px rgba(29, 26, 22, 0.07)",
+  raised: "0px 10px 30px rgba(29, 26, 22, 0.14)",
 };
 
 export interface Theme {

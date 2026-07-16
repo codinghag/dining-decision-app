@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Image, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -74,7 +74,12 @@ export default function RootLayout() {
   if (phase === "loading") {
     return (
       <View style={styles.loading}>
-        <Text style={styles.loadingLogo}>🍽️</Text>
+        <Image
+          source={require("../assets/icon.png")}
+          style={styles.loadingMark}
+          accessible={false}
+          importantForAccessibility="no"
+        />
         <Text style={styles.loadingBrand}>Forked</Text>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Starting up…</Text>
@@ -127,7 +132,7 @@ const themed = themedStyles((colors, type) => ({
     backgroundColor: colors.background,
     gap: 12,
   },
-  loadingLogo: { fontSize: 44, marginBottom: 4 },
+  loadingMark: { width: 72, height: 72, borderRadius: 20, marginBottom: 4 },
   loadingBrand: { ...type.title, marginBottom: 4 },
   loadingText: { ...type.body, color: colors.inkSecondary },
 }));

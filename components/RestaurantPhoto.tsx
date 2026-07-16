@@ -29,14 +29,14 @@ export function RestaurantPhoto({ photoName, variant = "thumb" }: RestaurantPhot
 
 const themed = themedStyles((colors) => ({
   thumb: {
-    width: 64,
-    height: 64,
+    width: 72,
+    height: 72,
     borderRadius: radius.md,
     backgroundColor: colors.surfaceMuted,
   },
   hero: {
     width: "100%" as const,
-    height: 140,
+    height: 180,
     borderRadius: radius.lg,
     backgroundColor: colors.surfaceMuted,
   },

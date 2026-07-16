@@ -7,6 +7,8 @@ export interface Collection {
   name: string;
   owner_id: string;
   created_at: string;
+  // Present on list reads (embedded count); absent on single-row reads.
+  restaurant_count?: number;
 }
 
 export interface Restaurant {
@@ -31,14 +33,21 @@ export interface Restaurant {
   created_at: string;
 }
 
-// The user's collections (RLS scopes this to collections they are a member of).
+// The user's collections (RLS scopes this to collections they are a member
+// of), each with an embedded restaurant count for the home cards.
 export async function listCollections(): Promise<Collection[]> {
   const { data, error } = await supabase
     .from("collections")
-    .select("*")
+    .select("*, collection_restaurants(count)")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data as Collection[];
+  const rows = (data ?? []) as (Collection & {
+    collection_restaurants?: { count: number }[];
+  })[];
+  return rows.map(({ collection_restaurants, ...c }) => ({
+    ...c,
+    restaurant_count: collection_restaurants?.[0]?.count ?? 0,
+  }));
 }
 
 export async function getCollection(id: string): Promise<Collection | null> {

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ScrollView, Text } from "react-native";
+import { Image, ScrollView, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   confirmLinkCode,
   confirmSignInCode,
@@ -10,7 +11,7 @@ import {
 } from "../lib/auth";
 import { TextField } from "./TextField";
 import { Button } from "./Button";
-import { spacing, themedStyles, useTheme } from "../lib/theme";
+import { radius, shadow, spacing, themedStyles, useTheme } from "../lib/theme";
 
 type Step = "email" | "code";
 type OtpType = "email" | "email_change";
@@ -89,68 +90,96 @@ export function SignInGate({ onSignedIn }: { onSignedIn: () => void }) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text accessible={false} style={styles.logo}>
-        🍽️
-      </Text>
-      <Text style={styles.brand} accessibilityRole="header">
-        Forked
-      </Text>
-      <Text style={styles.tagline}>Sign in to save your collections and use Forked on any device.</Text>
-
-      {info ? (
-        <Text style={styles.info} accessibilityLiveRegion="polite">
-          {info}
+      <LinearGradient
+        // Soft saffron glow behind the brand lockup — warm, not loud.
+        colors={[glowColor[scheme], "transparent"]}
+        style={styles.glow}
+        pointerEvents="none"
+      />
+      <View style={styles.lockup}>
+        <Image
+          source={require("../assets/icon.png")}
+          style={styles.mark}
+          accessible={false}
+          importantForAccessibility="no"
+        />
+        <Text style={styles.brand} accessibilityRole="header">
+          Forked
         </Text>
-      ) : null}
-      {error ? (
-        <Text style={styles.error} accessibilityLiveRegion="assertive">
-          {error}
-        </Text>
-      ) : null}
+        <Text style={styles.tagline}>Decide where to eat, together.</Text>
+      </View>
 
-      {step === "email" ? (
-        <>
-          <TextField
-            placeholder="you@example.com"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            autoComplete="email"
-            onSubmitEditing={onSend}
-            returnKeyType="send"
-          />
-          <Button label="Send code" loading={busy} disabled={!email.trim()} onPress={onSend} />
-        </>
-      ) : (
-        <>
-          <TextField
-            placeholder="Enter code"
-            value={code}
-            onChangeText={setCode}
-            keyboardType="number-pad"
-            autoComplete="one-time-code"
-            onSubmitEditing={onVerify}
-            returnKeyType="done"
-            autoFocus
-          />
-          <Button label="Verify" loading={busy} disabled={!code.trim()} onPress={onVerify} />
-          <Button
-            label="Use a different email"
-            variant="outline"
-            onPress={() => {
-              setStep("email");
-              setCode("");
-              setError(null);
-              setInfo(null);
-            }}
-          />
-        </>
-      )}
+      <View style={styles.formCard}>
+        <Text style={styles.formLabel}>
+          {step === "email" ? "Sign in or create an account" : "Check your email"}
+        </Text>
+
+        {info ? (
+          <Text style={styles.info} accessibilityLiveRegion="polite">
+            {info}
+          </Text>
+        ) : null}
+        {error ? (
+          <Text style={styles.error} accessibilityLiveRegion="assertive">
+            {error}
+          </Text>
+        ) : null}
+
+        {step === "email" ? (
+          <>
+            <TextField
+              placeholder="you@example.com"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              autoComplete="email"
+              onSubmitEditing={onSend}
+              returnKeyType="send"
+            />
+            <Button label="Send code" loading={busy} disabled={!email.trim()} onPress={onSend} />
+          </>
+        ) : (
+          <>
+            <TextField
+              placeholder="Enter code"
+              value={code}
+              onChangeText={setCode}
+              keyboardType="number-pad"
+              autoComplete="one-time-code"
+              onSubmitEditing={onVerify}
+              returnKeyType="done"
+              autoFocus
+            />
+            <Button label="Verify" loading={busy} disabled={!code.trim()} onPress={onVerify} />
+            <Button
+              label="Use a different email"
+              variant="outline"
+              onPress={() => {
+                setStep("email");
+                setCode("");
+                setError(null);
+                setInfo(null);
+              }}
+            />
+          </>
+        )}
+      </View>
+
+      <Text style={styles.footnote}>
+        Your collections sync to your email — no passwords, just a one-time code.
+      </Text>
     </ScrollView>
   );
 }
+
+// Gradient endpoints can't come from themedStyles (LinearGradient takes a
+// colors prop, not a style), so they're keyed by scheme here.
+const glowColor = {
+  light: "rgba(217, 154, 43, 0.18)",
+  dark: "rgba(228, 180, 94, 0.12)",
+} as const;
 
 function humanize(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
@@ -175,16 +204,44 @@ const themed = themedStyles((colors, type) => ({
     flexGrow: 1,
     justifyContent: "center" as const,
     padding: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
-  logo: { fontSize: 48, textAlign: "center" as const },
-  brand: { ...type.title, textAlign: "center" as const },
+  glow: {
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 320,
+  },
+  lockup: { alignItems: "center" as const, gap: spacing.sm },
+  mark: {
+    width: 84,
+    height: 84,
+    borderRadius: radius.xl,
+    boxShadow: shadow.raised,
+  },
+  brand: { ...type.title, fontSize: 40, textAlign: "center" as const, marginTop: spacing.xs },
   tagline: {
     ...type.body,
+    fontSize: 16,
     color: colors.inkSecondary,
     textAlign: "center" as const,
-    marginBottom: spacing.sm,
   },
+  formCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    gap: spacing.md,
+    boxShadow: shadow.card,
+  },
+  formLabel: { ...type.label, textAlign: "center" as const },
   info: { ...type.body, color: colors.yes, textAlign: "center" as const },
   error: { color: colors.pass, textAlign: "center" as const },
+  footnote: {
+    ...type.caption,
+    textAlign: "center" as const,
+    paddingHorizontal: spacing.lg,
+  },
 }));

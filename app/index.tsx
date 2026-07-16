@@ -87,61 +87,70 @@ export default function CollectionsScreen() {
 
   return (
     <ScreenContainer>
-      <View style={styles.identity}>
-        {editingName || (!displayName && !loading) ? (
-          <View style={styles.createRow}>
-            <TextField
-              style={styles.input}
-              placeholder="Your name"
-              value={nameInput}
-              onChangeText={setNameInput}
-              onSubmitEditing={onSaveName}
-              returnKeyType="done"
-              autoFocus={editingName}
-            />
-            <Button
-              label="Save"
-              loading={savingName}
-              onPress={onSaveName}
-              disabled={!nameInput.trim()}
-            />
-          </View>
-        ) : displayName ? (
-          <Pressable
-            style={styles.identityRow}
-            accessibilityRole="button"
-            accessibilityLabel={`Edit your name, currently ${displayName}`}
-            onPress={() => {
-              setNameInput(displayName);
-              setEditingName(true);
-            }}
-          >
-            <Text style={styles.identityText}>👤 {displayName}</Text>
-            <Text style={styles.identityEditLink}>Edit</Text>
-          </Pressable>
-        ) : null}
-      </View>
-
-      {syncEmail ? (
-        <View style={styles.syncRow}>
-          <Text style={styles.syncTextMuted} numberOfLines={1}>
-            {syncEmail}
-          </Text>
-          <Pressable
-            onPress={() => signOut()}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Sign out"
-          >
-            <Text style={styles.syncText}>Sign out</Text>
-          </Pressable>
+      {/* Editorial header: serif greeting + account line, like a menu cover. */}
+      <View style={styles.header}>
+        <Text style={styles.kicker}>THE TABLE IS YOURS</Text>
+        <Text style={styles.greeting} accessibilityRole="header">
+          {displayName ? `Hungry, ${displayName}?` : "Where to next?"}
+        </Text>
+        <View style={styles.accountRow}>
+          {editingName || (!displayName && !loading) ? (
+            <View style={styles.createRowFill}>
+              <TextField
+                style={styles.input}
+                placeholder="Your name"
+                value={nameInput}
+                onChangeText={setNameInput}
+                onSubmitEditing={onSaveName}
+                returnKeyType="done"
+                autoFocus={editingName}
+              />
+              <Button
+                label="Save"
+                loading={savingName}
+                onPress={onSaveName}
+                disabled={!nameInput.trim()}
+              />
+            </View>
+          ) : (
+            <>
+              {displayName ? (
+                <Pressable
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit your name, currently ${displayName}`}
+                  onPress={() => {
+                    setNameInput(displayName);
+                    setEditingName(true);
+                  }}
+                >
+                  <Text style={styles.accountLink}>Edit name</Text>
+                </Pressable>
+              ) : null}
+              {syncEmail ? (
+                <>
+                  <Text style={styles.accountEmail} numberOfLines={1}>
+                    {syncEmail}
+                  </Text>
+                  <Pressable
+                    onPress={() => signOut()}
+                    hitSlop={12}
+                    accessibilityRole="button"
+                    accessibilityLabel="Sign out"
+                  >
+                    <Text style={styles.accountLink}>Sign out</Text>
+                  </Pressable>
+                </>
+              ) : null}
+            </>
+          )}
         </View>
-      ) : null}
+      </View>
 
       <View style={styles.createRow}>
         <TextField
           style={styles.input}
-          placeholder="New collection name"
+          placeholder="Start a new collection…"
           value={name}
           onChangeText={setName}
           onSubmitEditing={onCreate}
@@ -165,14 +174,21 @@ export default function CollectionsScreen() {
           renderItem={({ item }) => (
             <Link href={`/collection/${item.id}`} asChild>
               <Pressable
-                style={styles.row}
+                style={styles.card}
                 accessibilityRole="button"
-                accessibilityLabel={`Open collection ${item.name}`}
+                accessibilityLabel={`Open collection ${item.name}, ${item.restaurant_count ?? 0} spots`}
               >
-                <Text style={styles.rowTitle}>{item.name}</Text>
-                <Text style={styles.rowChevron} accessible={false}>
-                  ›
-                </Text>
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <Text style={styles.cardMeta}>
+                    {item.restaurant_count === 1
+                      ? "1 spot saved"
+                      : `${item.restaurant_count ?? 0} spots saved`}
+                  </Text>
+                </View>
+                <View style={styles.cardBadge}>
+                  <Text style={styles.cardBadgeText}>{item.restaurant_count ?? 0}</Text>
+                </View>
               </Pressable>
             </Link>
           )}
@@ -183,37 +199,43 @@ export default function CollectionsScreen() {
 }
 
 const themed = themedStyles((colors, type) => ({
-  identity: { marginBottom: spacing.sm },
-  identityRow: {
+  header: { paddingTop: spacing.sm, paddingBottom: spacing.base, gap: spacing.xs },
+  kicker: { ...type.label, color: colors.accent },
+  greeting: { ...type.title },
+  accountRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: spacing.xs,
+    gap: spacing.md,
+    paddingTop: spacing.xs,
   },
-  identityText: { ...type.subtitle },
-  identityEditLink: { ...type.label, color: colors.primary },
-  syncRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
-  },
-  syncText: { ...type.label, color: colors.primary },
-  syncTextMuted: { ...type.caption, color: colors.inkTertiary, flex: 1 },
+  accountEmail: { ...type.caption, flexShrink: 1 },
+  accountLink: { ...type.caption, color: colors.primary, fontWeight: "600" },
   createRow: { flexDirection: "row", gap: spacing.sm },
+  createRowFill: { flexDirection: "row", gap: spacing.sm, flex: 1 },
   input: { flex: 1 },
-  list: { paddingTop: spacing.base, gap: spacing.sm },
-  row: {
+  list: { paddingTop: spacing.base, gap: spacing.md },
+  card: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    padding: spacing.base,
+    gap: spacing.md,
+    padding: spacing.lg,
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     boxShadow: shadow.card,
   },
-  rowTitle: { ...type.subtitle },
-  rowChevron: { fontSize: 22, color: colors.inkTertiary },
+  cardBody: { flex: 1, gap: 2 },
+  cardTitle: { ...type.heading },
+  cardMeta: { ...type.caption },
+  cardBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardBadgeText: { ...type.subtitle, color: colors.primary },
   error: { color: colors.pass, marginTop: spacing.sm },
 }));

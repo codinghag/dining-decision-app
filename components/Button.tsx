@@ -75,11 +75,12 @@ function textColor(variant: Variant, colors: ColorPalette): string {
 }
 
 const themed = themedStyles((colors) => ({
+  // Pill buttons — part of the editorial-menu design language.
   base: {
-    borderRadius: radius.md,
+    borderRadius: radius.full,
     paddingVertical: 14,
-    paddingHorizontal: spacing.base,
-    minHeight: 48, // comfortable touch target
+    paddingHorizontal: spacing.lg,
+    minHeight: 50, // comfortable touch target
     alignItems: "center" as const,
     justifyContent: "center" as const,
     flexDirection: "row" as const,
@@ -87,16 +88,16 @@ const themed = themedStyles((colors) => ({
   flex: { flex: 1 },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.45 },
-  label: { fontSize: 16, fontWeight: "700" as const },
+  label: { fontSize: 16, fontWeight: "700" as const, letterSpacing: 0.2 },
   primary: { backgroundColor: colors.primary },
   dark: { backgroundColor: colors.ink },
   outline: {
-    backgroundColor: colors.surface,
+    backgroundColor: "transparent",
     borderWidth: 1.5,
     borderColor: colors.primary,
   },
   "danger-outline": {
-    backgroundColor: colors.surface,
+    backgroundColor: "transparent",
     borderWidth: 1.5,
     borderColor: colors.pass,
   },
