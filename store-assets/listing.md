@@ -55,7 +55,15 @@ https://www.outforked.com/privacy
 
 ## Notes for the "App access" section (reviewer instructions)
 
-All features require sign-in via email one-time code. A test account is
-provided: sign in with <reviewer gmail address>, then open that Gmail inbox
-(credentials provided) to retrieve the code. TODO: create the dedicated
-reviewer Gmail account and fill in credentials here before submitting.
+All features require sign-in via a one-time email code (no passwords).
+Reviewer test account:
+
+1. In the app, enter the email: forked.reviewer@gmail.com and tap "Send code".
+2. Sign in to Gmail with that same address (password: <enter the Gmail
+   password in Play Console's App access form — do NOT commit it here>).
+3. Open the code email from the app and enter the code to sign in.
+
+The account has a pre-made collection with restaurants saved so the swipe
+"decide" flow can be tested immediately.
+TODO before submitting: sign into the app once as forked.reviewer@gmail.com
+and save 3-4 restaurants into a collection so reviewers see a populated app.
