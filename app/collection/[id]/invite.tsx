@@ -1,18 +1,25 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { getCollection } from "../../../lib/db";
-import { listFriends, inviteFriendsToCollection, type Friend } from "../../../lib/friends";
-import { shareCollectionInvite } from "../../../lib/invite";
+import {
+  inviteFriendsToCollection,
+  listFriends,
+  pickContactPhone,
+  type Friend,
+} from "../../../lib/friends";
+import { shareCollectionInvite, textCollectionInvite } from "../../../lib/invite";
 import { ScreenContainer } from "../../../components/ScreenContainer";
+import { TextField } from "../../../components/TextField";
 import { Button } from "../../../components/Button";
 import { radius, spacing, themedStyles, useTheme } from "../../../lib/theme";
 
-// Invite hub for a list, reached from the Share button. Two paths:
-//   - Friends on Forked: one tap adds them to the list server-side and
-//     push-notifies them — no link, no login, it just appears for them.
-//   - Everyone else: the existing share-sheet link (text/WhatsApp/etc.),
-//     which is also how brand-new users get in.
+// Invite hub for a list, reached from the Share button. Three paths:
+//   - Friends on Forked: multi-select from your general friends list, one
+//     tap adds them all server-side + push-notifies them — no link, no login.
+//   - Text a number: opens the SMS composer pre-filled with the join link
+//     (pick a contact via the system picker, or type the number).
+//   - Share link: the general share sheet for every other channel.
 export default function InviteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -21,8 +28,10 @@ export default function InviteScreen() {
 
   const [name, setName] = useState<string | null>(null);
   const [friends, setFriends] = useState<Friend[] | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [invited, setInvited] = useState<Set<string>>(new Set());
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [phone, setPhone] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +53,34 @@ export default function InviteScreen() {
     }, [load]),
   );
 
+  function toggle(userId: string) {
+    if (invited.has(userId)) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }
+
+  async function onInviteSelected() {
+    if (!id || selected.size === 0) return;
+    setInviting(true);
+    setError(null);
+    setFeedback(null);
+    try {
+      const ids = [...selected];
+      const count = await inviteFriendsToCollection(id, ids);
+      setInvited((prev) => new Set([...prev, ...ids]));
+      setSelected(new Set());
+      setFeedback(`Invited ${count} ${count === 1 ? "friend" : "friends"} ✓`);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setInviting(false);
+    }
+  }
+
   async function onShareLink() {
     if (!id) return;
     setFeedback(null);
@@ -56,17 +93,25 @@ export default function InviteScreen() {
     }
   }
 
-  async function onInvite(friend: Friend) {
-    if (!id) return;
-    setBusyId(friend.userId);
+  async function onTextNumber(number: string) {
+    if (!id || !number.trim()) return;
     setError(null);
+    setFeedback(null);
     try {
-      await inviteFriendsToCollection(id, [friend.userId]);
-      setInvited((prev) => new Set(prev).add(friend.userId));
+      await textCollectionInvite(id, name ?? "our list", number);
+      setPhone("");
     } catch (e) {
       setError(String(e));
-    } finally {
-      setBusyId(null);
+    }
+  }
+
+  async function onPickContact() {
+    setError(null);
+    try {
+      const picked = await pickContactPhone();
+      if (picked) await onTextNumber(picked.phone);
+    } catch (e) {
+      setError(String(e));
     }
   }
 
@@ -78,10 +123,6 @@ export default function InviteScreen() {
         {name ? `Invite people to "${name}"` : "Invite people"}
       </Text>
 
-      <Button label="📤 Share invite link" onPress={onShareLink} />
-      <Text style={styles.help}>
-        Anyone with the link can join and vote — no account needed.
-      </Text>
       {feedback ? (
         <Text style={styles.feedback} accessibilityLiveRegion="polite">
           {feedback}
@@ -89,13 +130,14 @@ export default function InviteScreen() {
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
+      {/* --- Friends on Forked: multi-select from the general list --- */}
       <Text style={styles.sectionTitle}>Friends on Forked</Text>
       {friends === null ? (
         <ActivityIndicator style={{ marginVertical: 12 }} color={colors.primary} />
       ) : friends.length === 0 ? (
         <>
           <Text style={styles.help}>
-            No friends yet — add some and inviting takes one tap.
+            No friends yet — add some once and inviting becomes one tap.
           </Text>
           <Button
             label="Go to Friends"
@@ -104,46 +146,99 @@ export default function InviteScreen() {
           />
         </>
       ) : (
-        friends.map((f) => {
-          const done = invited.has(f.userId);
-          return (
-            <View key={f.userId} style={styles.row}>
-              <Text style={styles.rowName}>{f.displayName ?? "Unnamed friend"}</Text>
-              {done ? (
-                <Text style={styles.invited}>Invited ✓</Text>
-              ) : (
-                <Button
-                  label="Invite"
-                  loading={busyId === f.userId}
-                  onPress={() => onInvite(f)}
-                />
-              )}
-            </View>
-          );
-        })
+        <>
+          {friends.map((f) => {
+            const done = invited.has(f.userId);
+            const on = selected.has(f.userId);
+            return (
+              <Pressable
+                key={f.userId}
+                style={[styles.row, on && styles.rowSelected]}
+                onPress={() => toggle(f.userId)}
+                disabled={done}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: on, disabled: done }}
+                accessibilityLabel={`Invite ${f.displayName ?? "friend"}`}
+              >
+                <Text style={[styles.check, on && styles.checkOn]}>
+                  {done ? "✓" : on ? "●" : "○"}
+                </Text>
+                <Text style={[styles.rowName, done && styles.rowNameDone]}>
+                  {f.displayName ?? "Unnamed friend"}
+                </Text>
+                {done ? <Text style={styles.invitedText}>Invited</Text> : null}
+              </Pressable>
+            );
+          })}
+          {selected.size > 0 ? (
+            <Button
+              label={`Invite ${selected.size} ${selected.size === 1 ? "friend" : "friends"}`}
+              loading={inviting}
+              onPress={onInviteSelected}
+            />
+          ) : null}
+        </>
       )}
+
+      {/* --- Text the link to a number --- */}
+      <Text style={styles.sectionTitle}>Text the link</Text>
+      {Platform.OS !== "web" ? (
+        <Button
+          label="📱 Pick from contacts"
+          variant="outline"
+          onPress={onPickContact}
+        />
+      ) : null}
+      <View style={styles.phoneRow}>
+        <TextField
+          style={styles.phoneInput}
+          placeholder="Phone number"
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+          onSubmitEditing={() => onTextNumber(phone)}
+          returnKeyType="send"
+        />
+        <Button
+          label="Text link"
+          disabled={!phone.trim()}
+          onPress={() => onTextNumber(phone)}
+        />
+      </View>
+
+      {/* --- Everything else --- */}
+      <Text style={styles.sectionTitle}>Or share anywhere</Text>
+      <Button label="📤 Share invite link" variant="outline" onPress={onShareLink} />
+      <Text style={styles.help}>
+        Anyone with the link can join and vote — no account needed.
+      </Text>
     </ScreenContainer>
   );
 }
 
 const themed = themedStyles((colors, type) => ({
   heading: { ...type.heading, marginBottom: spacing.sm },
-  sectionTitle: { ...type.label, marginTop: spacing.base },
+  sectionTitle: { ...type.label, marginTop: spacing.base, marginBottom: spacing.xs },
   help: { ...type.caption, color: colors.inkSecondary, marginTop: spacing.xs },
   feedback: { ...type.body, color: colors.yes },
   error: { color: colors.pass },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: spacing.md,
     padding: spacing.base,
     borderRadius: radius.lg,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
+  rowSelected: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+  check: { ...type.subtitle, color: colors.inkTertiary, width: 22, textAlign: "center" },
+  checkOn: { color: colors.primary },
   rowName: { ...type.subtitle, flex: 1 },
-  invited: { ...type.body, color: colors.yes, fontWeight: "600" },
+  rowNameDone: { color: colors.inkTertiary },
+  invitedText: { ...type.caption, color: colors.yes, fontWeight: "600" },
+  phoneRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
+  phoneInput: { flex: 1 },
 }));

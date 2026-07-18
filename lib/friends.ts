@@ -107,6 +107,21 @@ export async function inviteFriendsToCollection(
   return data.invited;
 }
 
+// Pick one contact via the OS contact picker and return a phone number to
+// text an invite to. Uses the system picker intent, so no contacts
+// permission prompt is involved. Native only; null = cancelled or the
+// picked contact has no number.
+export async function pickContactPhone(): Promise<
+  { name: string | null; phone: string } | null
+> {
+  if (Platform.OS === "web") return null;
+  const Contacts = await import("expo-contacts");
+  const contact = await Contacts.presentContactPickerAsync();
+  const phone = contact?.phoneNumbers?.[0]?.number ?? null;
+  if (!phone) return null;
+  return { name: contact?.name ?? null, phone };
+}
+
 // Emails from the device address book, for contact matching. Native only —
 // dynamic import so the web bundle never touches the native module. Returns
 // null when permission is denied (vs [] for "granted but no emails").

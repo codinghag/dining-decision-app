@@ -1,4 +1,4 @@
-import { Platform, Share } from "react-native";
+import { Linking, Platform, Share } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { logEvent } from "./analytics";
 import { buildMapsUrl } from "./maps";
@@ -60,6 +60,25 @@ export async function shareCollectionInvite(
     await logEvent("invite_sent", { collection_id: collectionId, outcome });
   }
   return outcome;
+}
+
+// Text the invite link to a specific phone number: opens the SMS composer
+// pre-filled with the message. This is the "invite by phone number" path —
+// accounts are email-based, so a number can't be matched to a user; the SMS
+// carries the join link, which needs no account to use anyway.
+export async function textCollectionInvite(
+  collectionId: string,
+  collectionName: string,
+  phone: string,
+): Promise<void> {
+  const url = collectionInviteUrl(collectionId);
+  const message = `Join my "${collectionName}" list on Forked: ${url}`;
+  // iOS wants `sms:<n>&body=`, Android (and mobile web) `sms:<n>?body=`.
+  const sep = Platform.OS === "ios" ? "&" : "?";
+  await Linking.openURL(
+    `sms:${encodeURIComponent(phone.trim())}${sep}body=${encodeURIComponent(message)}`,
+  );
+  await logEvent("invite_sent", { collection_id: collectionId, outcome: "sms" });
 }
 
 // Share a single restaurant (name + address + a Google Maps link that works
