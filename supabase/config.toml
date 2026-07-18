@@ -16,6 +16,9 @@ verify_jwt = true
 [functions.places-photo]
 verify_jwt = false
 
+[functions.resolve-social-post]
+verify_jwt = true
+
 [functions.join-collection]
 verify_jwt = true
 

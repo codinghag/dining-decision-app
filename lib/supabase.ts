@@ -5,7 +5,7 @@ import {
   type SupabaseClient,
 } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -37,6 +37,22 @@ export const supabase: SupabaseClient = createClient(
     },
   },
 );
+
+// Sessions must survive until an explicit sign-out (refresh tokens never
+// expire; only access tokens do, hourly). On native, supabase-js's refresh
+// timer doesn't fire while the app is backgrounded or killed, so a long-idle
+// app can come back with a stale token and look signed out. The standard
+// Supabase + Expo pattern: drive token refresh from AppState — refresh
+// aggressively while foregrounded, pause when backgrounded.
+if (Platform.OS !== "web") {
+  AppState.addEventListener("change", (state) => {
+    if (state === "active") {
+      supabase.auth.startAutoRefresh();
+    } else {
+      supabase.auth.stopAutoRefresh();
+    }
+  });
+}
 
 export async function getUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser();

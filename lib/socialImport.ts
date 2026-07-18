@@ -1,4 +1,5 @@
 import { strFromU8, unzipSync } from "fflate";
+import { invokeEdgeFunction } from "./supabase";
 
 export type SocialPlatform = "instagram" | "tiktok";
 
@@ -43,6 +44,18 @@ function extractFromText(text: string): SocialLink[] {
 // Android share-sheet target, not just bulk export parsing.
 export function matchSocialLink(text: string): SocialLink | null {
   return extractFromText(text)[0] ?? null;
+}
+
+// Server-side caption fetch for a shared post, so the share flow can suggest
+// restaurant matches instead of asking the user to type a name from memory.
+// Best effort: both fields null when the platform won't give up the caption.
+export interface SocialPostInfo {
+  caption: string | null;
+  suggestedQuery: string | null;
+}
+
+export async function resolveSocialPost(url: string): Promise<SocialPostInfo> {
+  return await invokeEdgeFunction<SocialPostInfo>("resolve-social-post", { url });
 }
 
 function isTextLikeEntry(filename: string): boolean {

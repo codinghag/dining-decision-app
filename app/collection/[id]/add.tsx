@@ -13,6 +13,7 @@ import { saveRestaurantToCollection, type CaptureMethod } from "../../../lib/db"
 import {
   extractSocialLinks,
   matchSocialLink,
+  resolveSocialPost,
   type SocialLink,
 } from "../../../lib/socialImport";
 import { getCurrentLocation, type Coords } from "../../../lib/location";
@@ -103,11 +104,26 @@ export default function AddRestaurantScreen() {
     setSocialLink(null);
     setSocialResults([]);
 
-    // Instagram/TikTok post? No API can tell us which restaurant it shows,
-    // so switch to match-by-search and keep the post URL as the source.
+    // Instagram/TikTok post? Read its caption server-side and auto-suggest
+    // matching restaurants — one tap to save when it works. The post URL is
+    // kept as the source either way; manual search is the fallback.
     const social = matchSocialLink(trimmed);
     if (social) {
       setSocialLink(social);
+      setBusy(true);
+      try {
+        const info = await resolveSocialPost(social.url);
+        if (info.suggestedQuery) {
+          setSocialQuery(info.suggestedQuery);
+          setSocialResults(
+            await searchPlaces(info.suggestedQuery, location ?? undefined),
+          );
+        }
+      } catch {
+        // best effort — the manual search box below still works
+      } finally {
+        setBusy(false);
+      }
       return;
     }
 

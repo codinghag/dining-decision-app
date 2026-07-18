@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-nati
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { listCollections, saveRestaurantToCollection, type Collection } from "../lib/db";
 import { getPlaceDetails, resolveMapsLink, searchPlaces, type Place, type PlaceSearchResult } from "../lib/places";
-import { matchSocialLink } from "../lib/socialImport";
+import { matchSocialLink, resolveSocialPost } from "../lib/socialImport";
 import { getCurrentLocation, type Coords } from "../lib/location";
 import { logEvent } from "../lib/analytics";
 import { TextField } from "../components/TextField";
@@ -34,6 +34,10 @@ export default function ShareTargetScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [location, setLocation] = useState<Coords | null>(null);
+  // True while/after the shared post's caption is auto-matched to places, so
+  // the UI can say "Is it one of these?" instead of asking for a search.
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggested, setSuggested] = useState(false);
 
   const shared = typeof sharedText === "string" ? sharedText : "";
   const social = matchSocialLink(shared);
@@ -66,10 +70,41 @@ export default function ShareTargetScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [looksLikeMapsLink]);
 
+  // Instagram/TikTok links: fetch the post's caption server-side and search
+  // Places with it automatically, so saving is one tap on a match instead of
+  // typing the restaurant's name from memory. Best effort — any failure just
+  // leaves the manual search flow.
+  useEffect(() => {
+    if (!social) return;
+    let cancelled = false;
+    (async () => {
+      setSuggesting(true);
+      try {
+        const info = await resolveSocialPost(social.url);
+        if (cancelled || !info.suggestedQuery) return;
+        setQuery(info.suggestedQuery);
+        const loc = await getCurrentLocation();
+        const found = await searchPlaces(info.suggestedQuery, loc ?? undefined);
+        if (cancelled) return;
+        setResults(found);
+        setSuggested(found.length > 0);
+      } catch {
+        // silent — the manual search box is the fallback
+      } finally {
+        if (!cancelled) setSuggesting(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function onSearch() {
     if (!query.trim()) return;
     setBusy(true);
     setError(null);
+    setSuggested(false);
     try {
       setResults(await searchPlaces(query.trim(), location ?? undefined));
     } catch (e) {
@@ -183,7 +218,14 @@ export default function ShareTargetScreen() {
         </View>
       ) : (
         <View style={styles.section}>
-          <Text style={styles.stepLabel}>Which restaurant is this?</Text>
+          <Text style={styles.stepLabel}>
+            {suggested ? "Is it one of these?" : "Which restaurant is this?"}
+          </Text>
+          {suggesting ? (
+            <Text style={styles.suggestingHint}>
+              Reading the post to find the restaurant…
+            </Text>
+          ) : null}
           <View style={styles.searchRow}>
             <TextField
               style={styles.searchInput}
@@ -192,7 +234,7 @@ export default function ShareTargetScreen() {
               onChangeText={setQuery}
               onSubmitEditing={onSearch}
               returnKeyType="search"
-              autoFocus
+              autoFocus={!social}
             />
             <Button label="Go" loading={busy} onPress={onSearch} />
           </View>
@@ -249,6 +291,7 @@ const themed = themedStyles((colors, type) => ({
   collectionMeta: { ...type.caption },
   searchRow: { flexDirection: "row" as const, gap: spacing.sm },
   searchInput: { flex: 1 },
+  suggestingHint: { ...type.caption, color: colors.inkSecondary },
   confirmTitle: { ...type.subtitle },
   confirmSub: { ...type.body, color: colors.inkSecondary },
   error: { color: colors.pass },
