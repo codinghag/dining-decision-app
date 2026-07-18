@@ -261,6 +261,11 @@ export default function CollectionDetailScreen() {
 
       <RestaurantSheet
         restaurant={selectedRestaurant}
+        collectionId={id}
+        onChanged={(updated) => {
+          setSelectedRestaurant(updated);
+          load();
+        }}
         onClose={() => setSelectedRestaurant(null)}
       />
 

@@ -183,6 +183,53 @@ export async function ensureRestaurant(
   return inserted as Restaurant;
 }
 
+// Fill in a previously unresolved restaurant (saved as free text or a bare
+// link) with real place details — rename included — so it ends up in the
+// same shape as a manual save. RLS (restaurants_update_unresolved, 0013)
+// only permits this while google_place_id is still null and only for members
+// of a collection containing the row. Fails with a unique violation if the
+// matched place already exists as another (deduped) row — callers handle
+// that by relinking to the existing row instead.
+export async function updateRestaurantDetails(
+  restaurantId: string,
+  place: Place,
+): Promise<Restaurant> {
+  const { data, error } = await supabase
+    .from("restaurants")
+    .update({
+      google_place_id: place.google_place_id,
+      name: place.name,
+      address: place.address,
+      lat: place.lat,
+      lng: place.lng,
+      phone: place.phone,
+      website: place.website,
+      hours: place.hours,
+      cuisine: place.cuisine,
+      price_level: place.price_level,
+      rating: place.rating,
+      rating_count: place.rating_count,
+      utc_offset_minutes: place.utc_offset_minutes,
+      photo_name: place.photo_name,
+    })
+    .eq("id", restaurantId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  await logEvent("restaurant_resolved", {
+    restaurant_id: restaurantId,
+    google_place_id: place.google_place_id,
+  });
+  return data as Restaurant;
+}
+
+// Postgres unique-constraint violation (e.g. the matched google_place_id
+// already exists as another restaurants row).
+export function isUniqueViolation(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /duplicate key|23505|unique constraint/i.test(msg);
+}
+
 // Upsert a restaurant (dedupe on google_place_id when present) and link it into
 // the collection, then log the capture event. Shared by all capture flows.
 export async function saveRestaurantToCollection(

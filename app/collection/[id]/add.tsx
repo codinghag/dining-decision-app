@@ -96,8 +96,10 @@ export default function AddRestaurantScreen() {
   }
 
   // --- Link import -------------------------------------------------------
-  async function onResolveLink() {
-    const trimmed = link.trim();
+  // `input` lets other tabs hand a URL straight in (quick add intercepts
+  // pasted links); button presses pass an event object, hence the typeof.
+  async function onResolveLink(input?: unknown) {
+    const trimmed = (typeof input === "string" ? input : link).trim();
     if (!trimmed) return;
     setError(null);
     setResolved(null);
@@ -468,17 +470,28 @@ export default function AddRestaurantScreen() {
             label="Save to list"
             loading={busy}
             disabled={!quickName.trim()}
-            onPress={() =>
+            onPress={() => {
+              const trimmed = quickName.trim();
+              // A pasted link isn't a name — route it through the link flow,
+              // which resolves it to a real place (and reads post captions),
+              // instead of saving a dead URL string as the restaurant.
+              if (/^https?:\/\//i.test(trimmed)) {
+                setLink(trimmed);
+                setQuickName("");
+                setTab("link");
+                onResolveLink(trimmed);
+                return;
+              }
               save(
                 {
-                  name: quickName.trim(),
+                  name: trimmed,
                   address: quickAddress.trim() || null,
                   cuisine: quickCuisine.trim() || null,
                   price_level: quickPriceLevel,
                 },
                 "quick_add",
-              )
-            }
+              );
+            }}
           />
         </View>
       )}
