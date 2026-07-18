@@ -89,6 +89,15 @@ export function RestaurantSheet({
     Linking.openURL(buildMapsUrl(r)).catch(() => {});
   }
 
+  // "Reserve a table" lands on the restaurant's Google Maps page, where
+  // Reserve with Google aggregates the booking platforms (OpenTable, Resy,
+  // Tock…). Booking directly in-app would need partner APIs those platforms
+  // don't offer publicly, so this is the deepest link available.
+  function onReserve() {
+    logEvent("reserve_opened", { restaurant_id: r.id });
+    Linking.openURL(buildMapsUrl(r)).catch(() => {});
+  }
+
   function onOpenSource() {
     if (!r.source_url) return;
     logEvent("source_post_opened", {
@@ -293,6 +302,9 @@ export function RestaurantSheet({
               </Text>
             ) : null}
 
+            {r.reservable ? (
+              <Button label="🗓️ Reserve a table" onPress={onReserve} />
+            ) : null}
             <View style={styles.actions}>
               <Button label="Get directions" flex onPress={onDirections} />
               <Button label="Share" variant="outline" flex onPress={onShare} />

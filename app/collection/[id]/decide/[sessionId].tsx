@@ -391,9 +391,25 @@ export default function DecideScreen() {
           {winner?.address ? (
             <Text style={styles.resultSub}>{winner.address}</Text>
           ) : null}
+          {winner?.reservable ? (
+            <Button
+              label="🗓️ Reserve a table"
+              style={styles.directionsButton}
+              onPress={() => {
+                // Maps place page carries Reserve with Google (OpenTable/
+                // Resy/Tock) — the deepest booking link available to us.
+                logEvent("reserve_opened", {
+                  session_id: sessionId,
+                  restaurant_id: winner.id,
+                });
+                Linking.openURL(buildMapsUrl(winner)).catch((e) => setError(String(e)));
+              }}
+            />
+          ) : null}
           {winner ? (
             <Button
               label="Get directions"
+              variant={winner.reservable ? "outline" : "primary"}
               style={styles.directionsButton}
               onPress={() => openDirections(winner)}
             />

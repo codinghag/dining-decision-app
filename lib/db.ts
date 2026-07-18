@@ -27,6 +27,7 @@ export interface Restaurant {
   rating_count: number | null;
   utc_offset_minutes: number | null;
   photo_name: string | null;
+  reservable: boolean | null;
   source_url: string | null;
   source_platform: "instagram" | "tiktok" | null;
   created_by: string | null;
@@ -173,6 +174,7 @@ export async function ensureRestaurant(
       rating_count: place.rating_count ?? null,
       utc_offset_minutes: place.utc_offset_minutes ?? null,
       photo_name: place.photo_name ?? null,
+      reservable: place.reservable ?? null,
       source_url: social?.source_url ?? null,
       source_platform: social?.source_platform ?? null,
       created_by: userId,
@@ -211,6 +213,7 @@ export async function updateRestaurantDetails(
       rating_count: place.rating_count,
       utc_offset_minutes: place.utc_offset_minutes,
       photo_name: place.photo_name,
+      reservable: place.reservable,
     })
     .eq("id", restaurantId)
     .select("*")
