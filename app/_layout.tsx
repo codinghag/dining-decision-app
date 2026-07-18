@@ -134,7 +134,23 @@ export default function RootLayout() {
           <SignInGate onSignedIn={evaluate} />
         ) : (
           <Stack screenOptions={screenOptions}>
-            <Stack.Screen name="index" options={{ title: "Saved" }} />
+            <Stack.Screen
+              name="index"
+              options={{
+                // Brand mark instead of a "Saved" text title — the home
+                // header is the one place the logo should live. `title` is
+                // kept for the browser tab / task switcher label.
+                title: "Forked",
+                headerTitle: () => (
+                  <Image
+                    source={require("../assets/icon.png")}
+                    style={styles.headerMark}
+                    accessible
+                    accessibilityLabel="Forked"
+                  />
+                ),
+              }}
+            />
             <Stack.Screen
               name="collection/[id]/index"
               options={{ title: "List" }}
@@ -176,6 +192,7 @@ const themed = themedStyles((colors, type) => ({
     gap: 12,
   },
   loadingMark: { width: 72, height: 72, borderRadius: 20, marginBottom: 4 },
+  headerMark: { width: 32, height: 32, borderRadius: 9 },
   loadingBrand: { ...type.title, marginBottom: 4 },
   loadingText: { ...type.body, color: colors.inkSecondary },
 }));
