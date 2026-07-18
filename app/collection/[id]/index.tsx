@@ -17,7 +17,6 @@ import {
   type Restaurant,
 } from "../../../lib/db";
 import { getUserId } from "../../../lib/supabase";
-import { shareCollectionInvite } from "../../../lib/invite";
 import { RestaurantSheet } from "../../../components/RestaurantSheet";
 import { startDecideSession } from "../../../lib/decide";
 import { getCurrentLocation, type Coords } from "../../../lib/location";
@@ -48,7 +47,6 @@ export default function CollectionDetailScreen() {
   const [restaurantToRemove, setRestaurantToRemove] = useState<Restaurant | null>(null);
   const [removing, setRemoving] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
-  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [wildcard, setWildcard] = useState(false);
   const [location, setLocation] = useState<Coords | null>(null);
   useEffect(() => {
@@ -80,19 +78,11 @@ export default function CollectionDetailScreen() {
     }, [load]),
   );
 
-  async function onShare() {
-    if (!id || !collection) return;
-    setShareFeedback(null);
-    try {
-      const outcome = await shareCollectionInvite(id, collection.name);
-      // Clipboard copies are invisible — say so, briefly.
-      if (outcome === "copied") {
-        setShareFeedback("Invite link copied to clipboard ✓");
-        setTimeout(() => setShareFeedback(null), 4000);
-      }
-    } catch (e) {
-      setError(String(e));
-    }
+  // Share opens the invite hub: in-app invites for friends on Forked, the
+  // share-sheet link for everyone else.
+  function onShare() {
+    if (!id) return;
+    router.push(`/collection/${id}/invite`);
   }
 
   async function onDecide() {
@@ -252,11 +242,6 @@ export default function CollectionDetailScreen() {
         </Text>
       ) : null}
 
-      {shareFeedback ? (
-        <Text style={styles.shareFeedback} accessibilityLiveRegion="polite">
-          {shareFeedback}
-        </Text>
-      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <RestaurantSheet
@@ -367,5 +352,4 @@ const themed = themedStyles((colors, type) => ({
   cardMetaRow: { flexDirection: "row", gap: spacing.md, flexWrap: "wrap", marginTop: spacing.xs },
   cardMeta: { ...type.caption },
   error: { color: colors.pass, marginTop: spacing.sm },
-  shareFeedback: { ...type.body, color: colors.yes, marginTop: spacing.sm },
 }));

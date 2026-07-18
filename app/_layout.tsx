@@ -168,6 +168,11 @@ export default function RootLayout() {
               options={{ title: "Joining…" }}
             />
             <Stack.Screen
+              name="collection/[id]/invite"
+              options={{ title: "Invite" }}
+            />
+            <Stack.Screen name="friends" options={{ title: "Friends" }} />
+            <Stack.Screen
               name="collection/[id]/decide/[sessionId]"
               options={{ title: "Let's Decide" }}
             />

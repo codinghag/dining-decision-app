@@ -22,5 +22,14 @@ verify_jwt = true
 [functions.join-collection]
 verify_jwt = true
 
+[functions.match-contacts]
+verify_jwt = true
+
+[functions.add-friend]
+verify_jwt = true
+
+[functions.invite-friends]
+verify_jwt = true
+
 [functions.start-decide-session]
 verify_jwt = true

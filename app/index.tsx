@@ -114,6 +114,14 @@ export default function CollectionsScreen() {
             </View>
           ) : (
             <>
+              <Pressable
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Open your friends"
+                onPress={() => router.push("/friends")}
+              >
+                <Text style={styles.accountLink}>👥 Friends</Text>
+              </Pressable>
               {displayName ? (
                 <Pressable
                   hitSlop={12}

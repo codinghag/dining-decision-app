@@ -43,6 +43,12 @@ export default function PrivacyPolicy() {
         {"\n\n"}
         {"•"} A push notification token, only if you enable
         notifications, so we can alert you when your group makes a decision.
+        {"\n\n"}
+        {"•"} Contact email addresses, only if you use "Find friends from
+        contacts": the email addresses from your address book are sent to our
+        server solely to check which of them already have a Forked account.
+        They are matched in memory and never stored. Your contacts' names and
+        phone numbers never leave your device.
       </Section>
 
       <Section title="How we use it">

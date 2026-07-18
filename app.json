@@ -56,6 +56,12 @@
         {
           "locationWhenInUsePermission": "Forked uses your location to show nearby restaurants first when you search."
         }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Forked checks which of your contacts are already on Forked so you can add them as friends. Contacts are matched once and never stored."
+        }
       ]
     ],
     "extra": {
