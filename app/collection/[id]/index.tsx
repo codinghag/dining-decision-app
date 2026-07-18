@@ -162,7 +162,7 @@ export default function CollectionDetailScreen() {
     <ScreenContainer>
       <Stack.Screen
         options={{
-          title: collection?.name ?? "Collection",
+          title: collection?.name ?? "List",
           headerRight: () => (
             <View style={styles.headerActions}>
               {isOwner ? (
@@ -170,7 +170,7 @@ export default function CollectionDetailScreen() {
                   onPress={() => setConfirmDeleteVisible(true)}
                   hitSlop={12}
                   accessibilityRole="button"
-                  accessibilityLabel="Delete this collection"
+                  accessibilityLabel="Delete this list"
                 >
                   <Text style={styles.headerDelete}>Delete</Text>
                 </Pressable>
@@ -179,7 +179,7 @@ export default function CollectionDetailScreen() {
                 onPress={onShare}
                 hitSlop={12}
                 accessibilityRole="button"
-                accessibilityLabel="Share an invite to this collection"
+                accessibilityLabel="Share an invite to this list"
               >
                 <Text style={styles.headerShare}>Share</Text>
               </Pressable>
@@ -190,7 +190,7 @@ export default function CollectionDetailScreen() {
 
       <ConfirmDialog
         visible={confirmDeleteVisible}
-        title="Delete this collection?"
+        title="Delete this list?"
         message={`"${collection?.name}" and all its saved restaurants will be gone for everyone in the group. This can't be undone.`}
         confirmLabel="Delete"
         destructive
@@ -202,7 +202,7 @@ export default function CollectionDetailScreen() {
       <ConfirmDialog
         visible={!!restaurantToRemove}
         title="Remove this restaurant?"
-        message={`"${restaurantToRemove?.name}" will be removed from this collection.`}
+        message={`"${restaurantToRemove?.name}" will be removed from this list.`}
         confirmLabel="Remove"
         destructive
         loading={removing}
@@ -272,7 +272,7 @@ export default function CollectionDetailScreen() {
           keyExtractor={(r) => r.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <EmptyState message="No restaurants yet. Add one to build this collection." />
+            <EmptyState message="No restaurants yet. Add one to build this list." />
           }
           renderItem={({ item }) => (
             <Pressable
@@ -292,7 +292,7 @@ export default function CollectionDetailScreen() {
                       onPress={() => setRestaurantToRemove(item)}
                       hitSlop={12}
                       accessibilityRole="button"
-                      accessibilityLabel={`Remove ${item.name} from this collection`}
+                      accessibilityLabel={`Remove ${item.name} from this list`}
                     >
                       <Text style={styles.cardRemove}>Remove</Text>
                     </Pressable>

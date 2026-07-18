@@ -54,7 +54,7 @@ export async function shareCollectionInvite(
   collectionName: string,
 ): Promise<ShareOutcome> {
   const url = collectionInviteUrl(collectionId);
-  const message = `Join my "${collectionName}" collection on Forked: ${url}`;
+  const message = `Join my "${collectionName}" list on Forked: ${url}`;
   const outcome = await shareMessage(message, url);
   if (outcome !== "dismissed") {
     await logEvent("invite_sent", { collection_id: collectionId, outcome });

@@ -6,7 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useShareIntent } from "expo-share-intent";
 import { supabase } from "../lib/supabase";
-import { getAuthStatus } from "../lib/auth";
+import { ensureSession, getAuthStatus } from "../lib/auth";
 import { logEvent } from "../lib/analytics";
 import { registerPushToken } from "../lib/push";
 import { SignInGate } from "../components/SignInGate";
@@ -18,6 +18,11 @@ export default function RootLayout() {
   const [phase, setPhase] = useState<Phase>("loading");
   const pathname = usePathname();
   const isPublicRoute = pathname === "/privacy";
+  // The invite edge: any /collection/* route (join, browse, decide) works
+  // without an account — losing a voter at the login screen is the one thing
+  // that kills a voting product. An anonymous session is created on the fly;
+  // the gate only guards persistence (home screen, share-target saves).
+  const isGuestRoute = pathname.startsWith("/collection/");
   const { scheme, colors } = useTheme();
   const styles = themed[scheme];
   // Status bar icons flip against the themed background; screen headers and
@@ -31,14 +36,30 @@ export default function RootLayout() {
     contentStyle: { backgroundColor: colors.background },
   };
 
-  // The app is gated on a *permanent* (email-linked) session. An anonymous
-  // session or no session shows the sign-in gate; the gate migrates an
-  // existing anonymous account in place (preserving its collections) or signs
-  // a new user in. We no longer auto-create an anonymous session on launch.
+  // Auth gates persistence, not participation. Guest routes (/collection/*)
+  // run on an anonymous session created on demand; everything else is gated
+  // on a *permanent* (email-linked) session. The gate migrates an existing
+  // anonymous account in place (preserving its lists and votes) or signs a
+  // new user in.
   const evaluate = useCallback(async () => {
     const { hasSession, isAnonymous } = await getAuthStatus();
-    setPhase(hasSession && !isAnonymous ? "app" : "gate");
-  }, []);
+    if (hasSession && !isAnonymous) {
+      setPhase("app");
+      return;
+    }
+    if (isGuestRoute) {
+      try {
+        await ensureSession();
+        setPhase("app");
+      } catch {
+        // Anonymous sign-ins disabled or network down — fall back to the gate
+        // rather than a dead screen.
+        setPhase("gate");
+      }
+      return;
+    }
+    setPhase("gate");
+  }, [isGuestRoute]);
 
   useEffect(() => {
     evaluate();
@@ -113,10 +134,10 @@ export default function RootLayout() {
           <SignInGate onSignedIn={evaluate} />
         ) : (
           <Stack screenOptions={screenOptions}>
-            <Stack.Screen name="index" options={{ title: "Collections" }} />
+            <Stack.Screen name="index" options={{ title: "Saved" }} />
             <Stack.Screen
               name="collection/[id]/index"
-              options={{ title: "Collection" }}
+              options={{ title: "List" }}
             />
             <Stack.Screen
               name="collection/[id]/add"

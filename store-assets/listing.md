@@ -12,7 +12,7 @@ Swipe with friends to pick a restaurant. Save spots from Instagram & TikTok.
 
 Forked ends the "where should we eat?" group chat spiral.
 
-Build shared collections of restaurants with your friends, then let everyone
+Build shared lists of restaurants with your friends, then let everyone
 swipe — the group's pick wins. No more forty-message threads that end in
 "idk, you choose."
 
@@ -29,9 +29,10 @@ DECIDE TOGETHER
 • Confetti when the group lands on a winner, directions one tap away
 
 BUILT FOR GROUPS
-• Invite friends with a single link
+• Invite friends with a single link — they can join and vote instantly,
+  no account needed
 • See group stats: most-picked spots, who you agree with, decision history
-• Everyone's saves in one shared collection
+• Everyone's saves in one shared list
 
 THE DETAILS
 • Restaurant photos, ratings, price range, cuisine, and live open/closed hours
@@ -55,15 +56,16 @@ https://www.outforked.com/privacy
 
 ## Notes for the "App access" section (reviewer instructions)
 
-All features require sign-in via a one-time email code (no passwords).
-Reviewer test account:
+Creating and saving lists requires sign-in via a one-time email code (no
+passwords). Joining a group via an invite link and voting works without an
+account. Reviewer test account:
 
 1. In the app, enter the email: forked.reviewer@gmail.com and tap "Send code".
 2. Sign in to Gmail with that same address (password: <enter the Gmail
    password in Play Console's App access form — do NOT commit it here>).
 3. Open the code email from the app and enter the code to sign in.
 
-The account has a pre-made collection with restaurants saved so the swipe
+The account has a pre-made list with restaurants saved so the swipe
 "decide" flow can be tested immediately.
 TODO before submitting: sign into the app once as forked.reviewer@gmail.com
-and save 3-4 restaurants into a collection so reviewers see a populated app.
+and save 3-4 restaurants into a list so reviewers see a populated app.

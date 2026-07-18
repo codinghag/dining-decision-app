@@ -52,6 +52,17 @@ export async function confirmSignInCode(email: string, token: string): Promise<v
   if (error) throw error;
 }
 
+// Make sure there is *some* session, creating an anonymous one if needed.
+// Used on the invite edge (/collection/* routes) so a link recipient can join
+// and vote with zero friction; the sign-in gate later upgrades the anonymous
+// account in place (see LINK flow above), so nothing they did is orphaned.
+export async function ensureSession(): Promise<void> {
+  const { data } = await supabase.auth.getSession();
+  if (data.session) return;
+  const { error } = await supabase.auth.signInAnonymously();
+  if (error) throw error;
+}
+
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }

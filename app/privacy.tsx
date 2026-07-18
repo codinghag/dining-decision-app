@@ -19,20 +19,22 @@ export default function PrivacyPolicy() {
 
       <Section title="What Forked is">
         Forked is a friend-group dining decision app. Groups create shared
-        collections of restaurants and use Forked to swipe, vote, and pick
+        lists of restaurants and use Forked to swipe, vote, and pick
         where to eat.
       </Section>
 
       <Section title="Information we collect">
         {"•"} Email address, used only to send a one-time sign-in code
-        and keep your collections tied to your account across devices.
+        and keep your lists tied to your account across devices. Joining a
+        group and voting via an invite link works without an email; one is
+        only collected if you choose to save your account.
         {"\n\n"}
         {"•"} Location, used only when you search for restaurants, to
         show nearby results first. You can decline location access and still
         search manually.
         {"\n\n"}
         {"•"} Restaurant data you save (name, notes, links you import
-        from), and the collections and votes you create.
+        from), and the lists and votes you create.
         {"\n\n"}
         {"•"} Basic usage events (e.g. app opened, restaurant added, a
         group decision completed) so we can tell which features are actually
@@ -44,7 +46,7 @@ export default function PrivacyPolicy() {
       </Section>
 
       <Section title="How we use it">
-        Solely to run the app: authenticate you, sync your collections
+        Solely to run the app: authenticate you, sync your lists
         across devices, personalize restaurant search by location, and
         notify your group about decisions. We do not sell your data or use
         it for advertising.
@@ -52,7 +54,7 @@ export default function PrivacyPolicy() {
 
       <Section title="Who we share it with">
         {"•"} Supabase, our backend provider, which stores your account
-        and collection data.
+        and list data.
         {"\n\n"}
         {"•"} Google Places API, which we query on your behalf when you
         search for or import a restaurant. Your search terms and approximate
@@ -63,7 +65,7 @@ export default function PrivacyPolicy() {
       </Section>
 
       <Section title="Your choices">
-        You can delete any restaurant, collection, or your entire account's
+        You can delete any restaurant, list, or your entire account's
         data at any time from within the app. To request full account
         deletion, contact us using the email below.
       </Section>

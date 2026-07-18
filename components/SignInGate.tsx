@@ -168,7 +168,7 @@ export function SignInGate({ onSignedIn }: { onSignedIn: () => void }) {
       </View>
 
       <Text style={styles.footnote}>
-        Your collections sync to your email — no passwords, just a one-time code.
+        Your lists sync to your email — no passwords, just a one-time code.
       </Text>
     </ScrollView>
   );

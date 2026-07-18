@@ -146,12 +146,12 @@ export default function ShareTargetScreen() {
 
       {collections.length === 0 ? (
         <>
-          <EmptyState message="You don't have a collection yet. Create one first, then share this post again." />
-          <Button label="Go to collections" onPress={() => router.replace("/")} />
+          <EmptyState message="You don't have a list yet. Create one first, then share this post again." />
+          <Button label="Go to your lists" onPress={() => router.replace("/")} />
         </>
       ) : !collectionId ? (
         <View style={styles.section}>
-          <Text style={styles.stepLabel}>Save to which collection?</Text>
+          <Text style={styles.stepLabel}>Save to which list?</Text>
           {collections.map((c) => (
             <Pressable
               key={c.id}
@@ -179,7 +179,7 @@ export default function ShareTargetScreen() {
             />
             {resolved.address ? <Text style={styles.confirmSub}>{resolved.address}</Text> : null}
           </Card>
-          <Button label="Save to collection" loading={busy} onPress={saveResolved} />
+          <Button label="Save to list" loading={busy} onPress={saveResolved} />
         </View>
       ) : (
         <View style={styles.section}>

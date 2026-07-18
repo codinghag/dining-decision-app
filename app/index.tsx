@@ -150,7 +150,7 @@ export default function CollectionsScreen() {
       <View style={styles.createRow}>
         <TextField
           style={styles.input}
-          placeholder="Start a new collection…"
+          placeholder="Start a new list…"
           value={name}
           onChangeText={setName}
           onSubmitEditing={onCreate}
@@ -169,14 +169,14 @@ export default function CollectionsScreen() {
           keyExtractor={(c) => c.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <EmptyState message="No collections yet. Create one above to get started." />
+            <EmptyState message="No lists yet. Create one above to get started." />
           }
           renderItem={({ item }) => (
             <Link href={`/collection/${item.id}`} asChild>
               <Pressable
                 style={styles.card}
                 accessibilityRole="button"
-                accessibilityLabel={`Open collection ${item.name}, ${item.restaurant_count ?? 0} spots`}
+                accessibilityLabel={`Open list ${item.name}, ${item.restaurant_count ?? 0} spots`}
               >
                 <View style={styles.cardBody}>
                   <Text style={styles.cardTitle}>{item.name}</Text>

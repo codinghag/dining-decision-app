@@ -17,6 +17,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { getUserId, supabase } from "../../../../lib/supabase";
+import { getAuthStatus } from "../../../../lib/auth";
 import type { Restaurant } from "../../../../lib/db";
 import {
   castVote,
@@ -32,6 +33,7 @@ import { RestaurantTags } from "../../../../components/RestaurantTags";
 import { RestaurantPhoto } from "../../../../components/RestaurantPhoto";
 import { Confetti } from "../../../../components/Confetti";
 import { CountdownTimer } from "../../../../components/CountdownTimer";
+import { SignInGate } from "../../../../components/SignInGate";
 import { buildMapsUrl } from "../../../../lib/maps";
 import { isOpenNow } from "../../../../lib/hours";
 import { logEvent } from "../../../../lib/analytics";
@@ -58,6 +60,11 @@ export default function DecideScreen() {
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [presentCount, setPresentCount] = useState(0);
+  // Anonymous voters get a save-your-group prompt on the result view — after
+  // the first decision lands, not as a cold gate up front. Signing in links
+  // the anonymous account in place, so their vote and membership carry over.
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(false);
 
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -74,6 +81,7 @@ export default function DecideScreen() {
       setSession(data.session);
       setRestaurants(data.restaurants);
       setVotes(await listVotes(sessionId));
+      setIsAnonymous((await getAuthStatus()).isAnonymous);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -341,6 +349,17 @@ export default function DecideScreen() {
   const current = restaurants[index];
   const doneVoting = index >= restaurants.length;
 
+  if (showSignIn) {
+    return (
+      <SignInGate
+        onSignedIn={() => {
+          setShowSignIn(false);
+          setIsAnonymous(false);
+        }}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: "Let's Decide" }} />
@@ -380,8 +399,22 @@ export default function DecideScreen() {
             />
           ) : null}
           <View style={styles.tallies}>{renderTallies()}</View>
+          {isAnonymous ? (
+            <View style={styles.savePrompt}>
+              <Text style={styles.savePromptTitle}>Keep this group</Text>
+              <Text style={styles.savePromptText}>
+                Save it to your email so next time takes 30 seconds — no
+                password, just a one-time code.
+              </Text>
+              <Button
+                label="Save my group"
+                style={styles.savePromptButton}
+                onPress={() => setShowSignIn(true)}
+              />
+            </View>
+          ) : null}
           <Button
-            label="Back to collection"
+            label="Back to list"
             variant="outline"
             style={styles.primaryButton}
             onPress={() => router.replace(`/collection/${collectionId}`)}
@@ -540,6 +573,19 @@ const themed = themedStyles((colors, type) => ({
     borderRadius: radius.full,
     backgroundColor: colors.accent,
   },
+  savePrompt: {
+    alignSelf: "stretch",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceMuted,
+    padding: spacing.md,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  savePromptTitle: { ...type.label },
+  savePromptText: { ...type.body, color: colors.inkSecondary },
+  savePromptButton: { alignSelf: "stretch" },
   directionsButton: { marginTop: spacing.sm, alignSelf: "stretch" },
   primaryButton: { marginTop: spacing.sm, alignSelf: "stretch" },
   resultBox: { gap: spacing.sm, alignItems: "center", paddingTop: spacing.lg },

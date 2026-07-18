@@ -324,7 +324,7 @@ export default function AddRestaurantScreen() {
                   key={r.google_place_id}
                   onPress={() => onSocialPick(r)}
                   accessibilityRole="button"
-                  accessibilityLabel={`Save ${r.name} to this collection`}
+                  accessibilityLabel={`Save ${r.name} to this list`}
                 >
                   <Card>
                     <Text style={styles.confirmTitle}>{r.name}</Text>
@@ -358,7 +358,7 @@ export default function AddRestaurantScreen() {
                 <Text style={styles.confirmSub}>{resolved.address}</Text>
               ) : null}
               <Button
-                label="Save to collection"
+                label="Save to list"
                 loading={busy}
                 onPress={() => save(resolved, "link")}
               />
@@ -388,7 +388,7 @@ export default function AddRestaurantScreen() {
               key={r.google_place_id}
               onPress={() => onPickResult(r)}
               accessibilityRole="button"
-              accessibilityLabel={`Save ${r.name} to this collection`}
+              accessibilityLabel={`Save ${r.name} to this list`}
             >
               <Card>
                 <Text style={styles.confirmTitle}>{r.name}</Text>
@@ -449,7 +449,7 @@ export default function AddRestaurantScreen() {
             ))}
           </View>
           <Button
-            label="Save to collection"
+            label="Save to list"
             loading={busy}
             disabled={!quickName.trim()}
             onPress={() =>
@@ -493,7 +493,7 @@ export default function AddRestaurantScreen() {
                 </View>
 
                 {row.status === "saved" ? (
-                  <Text style={styles.importSaved}>✓ Added to collection</Text>
+                  <Text style={styles.importSaved}>✓ Added to list</Text>
                 ) : row.status === "skipped" ? (
                   <Text style={styles.importSkipped}>Skipped</Text>
                 ) : (
@@ -518,7 +518,7 @@ export default function AddRestaurantScreen() {
                         key={r.google_place_id}
                         onPress={() => onImportPick(link, r)}
                         accessibilityRole="button"
-                        accessibilityLabel={`Save ${r.name} to this collection`}
+                        accessibilityLabel={`Save ${r.name} to this list`}
                       >
                         <Card>
                           <Text style={styles.confirmTitle}>{r.name}</Text>
