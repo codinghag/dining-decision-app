@@ -69,7 +69,7 @@ function cleanForSearch(text: string): string {
 // Pages that didn't give up a real caption (login walls, bare site titles)
 // must yield null, not a junk search query.
 const JUNK_TEXT =
-  /^(instagram|tiktok|login|log in|sign up)\b|•\s*instagram$|tiktok - make your day/i;
+  /^(instagram|tiktok|login|log in|sign up|create an account)\b|•\s*instagram$|log ?in to instagram|tiktok - make your day/i;
 
 function meaningful(text: string | null): string | null {
   if (!text) return null;
@@ -93,6 +93,43 @@ function buildSuggestedQuery(texts: (string | null)[]): string | null {
     if (!t) continue;
     const q = cleanForSearch(t.split(/\n/)[0]);
     if (q.length >= 3) return q.split(/\s+/).slice(0, 10).join(" ");
+  }
+  return null;
+}
+
+// Instagram serves real og tags to residential/link-preview IPs but a login
+// wall to data-center IPs (which is where this function runs). The
+// /embed/captioned/ endpoint still server-renders the caption — but only for
+// the crawler UA; a browser UA gets an empty React shell. So this is the
+// working Instagram path in practice: embed URL + CRAWLER_UA.
+function instagramEmbedUrl(url: string): string | null {
+  const m = url.match(/instagram\.com\/(?:[\w.]+\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i);
+  if (!m) return null;
+  return `https://www.instagram.com/${m[1]}/${m[2]}/embed/captioned/`;
+}
+
+function captionFromInstagramEmbed(html: string): string | null {
+  // Preferred: the JSON blob's "caption":"..." (JSON-unescape it).
+  const j = html.match(/"caption"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  if (j) {
+    try {
+      const s = JSON.parse(`"${j[1]}"`).trim();
+      if (s) return s;
+    } catch (_e) {
+      // malformed escape — fall through to the markup path
+    }
+  }
+  // Fallback: the rendered <div class="Caption">…</div> markup. It opens with
+  // the poster's username link then <br><br>, so drop through the first <br>
+  // run before stripping tags — otherwise the "caption" is just the username.
+  const d = html.match(/class="Caption"[^>]*>([\s\S]*?)<div class="CaptionComments"/) ??
+    html.match(/class="Caption"[^>]*>([\s\S]*?)<\/div>/);
+  if (d) {
+    const inner = d[1].replace(/^[\s\S]*?<br\s*\/?>(?:\s*<br\s*\/?>)*/i, "");
+    const s = decodeEntities(
+      inner.replace(/<br[^>]*\/?>/gi, "\n").replace(/<[^>]+>/g, " "),
+    ).replace(/[ \t]+/g, " ").trim();
+    if (s) return s;
   }
   return null;
 }
@@ -141,7 +178,26 @@ Deno.serve(async (req) => {
 
     title = meaningful(title);
     description = meaningful(description);
-    const caption = meaningful(captionFrom(description) ?? captionFrom(title));
+    let caption = meaningful(captionFrom(description) ?? captionFrom(title));
+
+    // Instagram from a data-center IP: og tags were a login wall — go to the
+    // embed endpoint instead.
+    if (!caption) {
+      const embedUrl = instagramEmbedUrl(url);
+      if (embedUrl) {
+        try {
+          const res = await fetch(embedUrl, {
+            redirect: "follow",
+            headers: { "User-Agent": CRAWLER_UA, "Accept-Language": "en" },
+          });
+          const html = (await res.text()).slice(0, MAX_HTML_BYTES);
+          caption = meaningful(captionFromInstagramEmbed(html));
+        } catch (_e) {
+          // best effort — return whatever we have
+        }
+      }
+    }
+
     const suggestedQuery = buildSuggestedQuery([caption, title, description]);
     return jsonResponse({ caption, suggestedQuery });
   } catch (err) {
