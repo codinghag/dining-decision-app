@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { HeaderBackButton } from "@react-navigation/elements";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -30,42 +29,37 @@ export default function RootLayout() {
   // Status bar icons flip against the themed background; screen headers and
   // content grounds follow the palette.
   const statusBarStyle = scheme === "dark" ? "light" : "dark";
-  // Every screen's header leads with a tappable brand mark that jumps
-  // straight home — no walking back through the stack. It lives on the LEFT,
-  // sharing the slot with the back arrow (which custom headerLeft would
-  // otherwise swallow), so back navigation survives. The home screen
-  // overrides it: its title already IS the mark.
-  const headerLeft = (props: { canGoBack?: boolean; tintColor?: string }) => (
-    <View style={styles.headerLeftRow}>
-      {props.canGoBack ? (
-        <HeaderBackButton
-          tintColor={props.tintColor ?? colors.ink}
-          onPress={() => router.back()}
-          style={styles.headerBack}
-        />
-      ) : null}
-      <Pressable
-        onPress={() => router.navigate("/")}
-        hitSlop={10}
-        accessibilityRole="button"
-        accessibilityLabel="Go to home"
-      >
-        <Image
-          source={require("../assets/icon.png")}
-          style={styles.headerHomeMark}
-          accessible={false}
-          importantForAccessibility="no"
-        />
-      </Pressable>
-    </View>
+  // Every screen's header centers a tappable brand mark next to the screen's
+  // title — tapping it jumps straight home, no walking back through the
+  // stack. Paired with the title (not replacing it) so screens keep their
+  // context ("List", "Friends", "Invite", …). headerTitleAlign: "center" is
+  // needed because native-stack defaults it to "left" on Android. The back
+  // arrow is left to the platform default, which renders on the left
+  // automatically whenever there's somewhere to go back to.
+  const headerTitle = ({ children }: { children?: string }) => (
+    <Pressable
+      onPress={() => router.navigate("/")}
+      hitSlop={10}
+      style={styles.headerTitleRow}
+      accessibilityRole="button"
+      accessibilityLabel={children ? `${children}. Go to home` : "Go to home"}
+    >
+      <Image
+        source={require("../assets/icon.png")}
+        style={styles.headerHomeMark}
+        accessible={false}
+        importantForAccessibility="no"
+      />
+      {children ? <Text style={styles.headerTitleText}>{children}</Text> : null}
+    </Pressable>
   );
   const screenOptions = {
     headerStyle: { backgroundColor: colors.background },
     headerTintColor: colors.ink,
-    headerTitleStyle: { fontWeight: "700" as const },
+    headerTitleAlign: "center" as const,
     headerShadowVisible: false,
     contentStyle: { backgroundColor: colors.background },
-    headerLeft,
+    headerTitle,
   };
 
   // Auth gates persistence, not participation. Guest routes (/collection/*)
@@ -180,8 +174,6 @@ export default function RootLayout() {
                     accessibilityLabel="Forked"
                   />
                 ),
-                // Home already wears the mark as its title.
-                headerLeft: () => null,
               }}
             />
             <Stack.Screen
@@ -231,9 +223,9 @@ const themed = themedStyles((colors, type) => ({
   },
   loadingMark: { width: 72, height: 72, borderRadius: 20, marginBottom: 4 },
   headerMark: { width: 32, height: 32, borderRadius: 9 },
-  headerHomeMark: { width: 28, height: 28, borderRadius: 8 },
-  headerLeftRow: { flexDirection: "row", alignItems: "center", gap: 2 },
-  headerBack: { marginLeft: -8 },
+  headerHomeMark: { width: 24, height: 24, borderRadius: 7 },
+  headerTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  headerTitleText: { fontWeight: "700", fontSize: 17, color: colors.ink },
   loadingBrand: { ...type.title, marginBottom: 4 },
   loadingText: { ...type.body, color: colors.inkSecondary },
 }));
