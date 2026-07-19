@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { HeaderBackButton } from "@react-navigation/elements";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -29,23 +30,34 @@ export default function RootLayout() {
   // Status bar icons flip against the themed background; screen headers and
   // content grounds follow the palette.
   const statusBarStyle = scheme === "dark" ? "light" : "dark";
-  // Every screen's header carries a tappable brand mark that jumps straight
-  // home — no walking back through the stack. The home screen overrides this
-  // (its title already IS the mark).
-  const homeMark = () => (
-    <Pressable
-      onPress={() => router.navigate("/")}
-      hitSlop={10}
-      accessibilityRole="button"
-      accessibilityLabel="Go to home"
-    >
-      <Image
-        source={require("../assets/icon.png")}
-        style={styles.headerHomeMark}
-        accessible={false}
-        importantForAccessibility="no"
-      />
-    </Pressable>
+  // Every screen's header leads with a tappable brand mark that jumps
+  // straight home — no walking back through the stack. It lives on the LEFT,
+  // sharing the slot with the back arrow (which custom headerLeft would
+  // otherwise swallow), so back navigation survives. The home screen
+  // overrides it: its title already IS the mark.
+  const headerLeft = (props: { canGoBack?: boolean; tintColor?: string }) => (
+    <View style={styles.headerLeftRow}>
+      {props.canGoBack ? (
+        <HeaderBackButton
+          tintColor={props.tintColor ?? colors.ink}
+          onPress={() => router.back()}
+          style={styles.headerBack}
+        />
+      ) : null}
+      <Pressable
+        onPress={() => router.navigate("/")}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="Go to home"
+      >
+        <Image
+          source={require("../assets/icon.png")}
+          style={styles.headerHomeMark}
+          accessible={false}
+          importantForAccessibility="no"
+        />
+      </Pressable>
+    </View>
   );
   const screenOptions = {
     headerStyle: { backgroundColor: colors.background },
@@ -53,7 +65,7 @@ export default function RootLayout() {
     headerTitleStyle: { fontWeight: "700" as const },
     headerShadowVisible: false,
     contentStyle: { backgroundColor: colors.background },
-    headerRight: homeMark,
+    headerLeft,
   };
 
   // Auth gates persistence, not participation. Guest routes (/collection/*)
@@ -169,7 +181,7 @@ export default function RootLayout() {
                   />
                 ),
                 // Home already wears the mark as its title.
-                headerRight: () => null,
+                headerLeft: () => null,
               }}
             />
             <Stack.Screen
@@ -220,6 +232,8 @@ const themed = themedStyles((colors, type) => ({
   loadingMark: { width: 72, height: 72, borderRadius: 20, marginBottom: 4 },
   headerMark: { width: 32, height: 32, borderRadius: 9 },
   headerHomeMark: { width: 28, height: 28, borderRadius: 8 },
+  headerLeftRow: { flexDirection: "row", alignItems: "center", gap: 2 },
+  headerBack: { marginLeft: -8 },
   loadingBrand: { ...type.title, marginBottom: 4 },
   loadingText: { ...type.body, color: colors.inkSecondary },
 }));
