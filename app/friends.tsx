@@ -3,7 +3,7 @@ import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native
 import { Stack, useFocusEffect } from "expo-router";
 import {
   addFriend,
-  getContactEmails,
+  getContactInfo,
   listFriends,
   matchContacts,
   removeFriend,
@@ -11,17 +11,20 @@ import {
   type ContactMatch,
   type Friend,
 } from "../lib/friends";
+import { clearMyPhone, getMyPhone, setMyPhone } from "../lib/profile";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { TextField } from "../components/TextField";
 import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
 import { radius, spacing, themedStyles, useTheme } from "../lib/theme";
 
-// Friends hub: see your friends, and add new ones three ways —
-//   1. from your phone contacts (native only; emails matched server-side,
-//      never stored),
-//   2. by exact email,
+// Friends hub: see your friends, and add new ones several ways —
+//   1. from your phone contacts (native only; emails + phone numbers matched
+//      server-side, never stored),
+//   2. by exact email or phone number,
 //   3. from people you already share a list with (zero-permission source).
+// A phone number is only matchable if the OTHER person has set one on their
+// own profile below — it's opt-in, same as this screen lets you set yours.
 // Friends can then be invited into lists in-app (see collection invite
 // screen) instead of only via a texted link.
 export default function FriendsScreen() {
@@ -30,9 +33,15 @@ export default function FriendsScreen() {
 
   const [friends, setFriends] = useState<Friend[] | null>(null);
   const [suggested, setSuggested] = useState<Friend[]>([]);
+  const [myPhone, setMyPhoneState] = useState<string | null>(null);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
   const [email, setEmail] = useState("");
   const [emailMatch, setEmailMatch] = useState<ContactMatch | null>(null);
   const [emailMiss, setEmailMiss] = useState(false);
+  const [lookupPhone, setLookupPhone] = useState("");
+  const [phoneMatch, setPhoneMatch] = useState<ContactMatch | null>(null);
+  const [phoneMiss, setPhoneMiss] = useState(false);
   const [contactMatches, setContactMatches] = useState<ContactMatch[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,9 +49,14 @@ export default function FriendsScreen() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [f, s] = await Promise.all([listFriends(), suggestedFriends()]);
+      const [f, s, p] = await Promise.all([
+        listFriends(),
+        suggestedFriends(),
+        getMyPhone(),
+      ]);
       setFriends(f);
       setSuggested(s);
+      setMyPhoneState(p);
     } catch (e) {
       setError(String(e));
     }
@@ -61,6 +75,8 @@ export default function FriendsScreen() {
       await addFriend(userId);
       setEmailMatch(null);
       setEmail("");
+      setPhoneMatch(null);
+      setLookupPhone("");
       setContactMatches((prev) =>
         prev ? prev.filter((m) => m.userId !== userId) : prev,
       );
@@ -85,6 +101,34 @@ export default function FriendsScreen() {
     }
   }
 
+  async function onSavePhone() {
+    if (!phoneInput.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await setMyPhone(phoneInput.trim());
+      setEditingPhone(false);
+      await load();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onRemovePhone() {
+    setBusy(true);
+    setError(null);
+    try {
+      await clearMyPhone();
+      await load();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onLookupEmail() {
     const e = email.trim().toLowerCase();
     if (!e) return;
@@ -93,9 +137,26 @@ export default function FriendsScreen() {
     setEmailMatch(null);
     setEmailMiss(false);
     try {
-      const matches = await matchContacts([e]);
+      const matches = await matchContacts({ emails: [e] });
       if (matches.length > 0) setEmailMatch(matches[0]);
       else setEmailMiss(true);
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onLookupPhone() {
+    if (!lookupPhone.trim()) return;
+    setBusy(true);
+    setError(null);
+    setPhoneMatch(null);
+    setPhoneMiss(false);
+    try {
+      const matches = await matchContacts({ phones: [lookupPhone.trim()] });
+      if (matches.length > 0) setPhoneMatch(matches[0]);
+      else setPhoneMiss(true);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -107,19 +168,19 @@ export default function FriendsScreen() {
     setBusy(true);
     setError(null);
     try {
-      const emails = await getContactEmails();
-      if (emails === null) {
-        setError("Contacts permission was denied — you can still add friends by email.");
+      const info = await getContactInfo();
+      if (info === null) {
+        setError("Contacts permission was denied — you can still add friends by email or phone.");
         return;
       }
-      if (emails.length === 0) {
+      if (info.emails.length === 0 && info.phones.length === 0) {
         setContactMatches([]);
         return;
       }
       const friendIds = new Set((friends ?? []).map((f) => f.userId));
-      const matches = (await matchContacts(emails)).filter(
-        (m) => !friendIds.has(m.userId),
-      );
+      const matches = (
+        await matchContacts({ emails: info.emails, phones: info.phones })
+      ).filter((m) => !friendIds.has(m.userId));
       setContactMatches(matches);
     } catch (e) {
       setError(String(e));
@@ -179,13 +240,56 @@ export default function FriendsScreen() {
         )
       )}
 
+      {/* --- Your own phone number, so others can find you --- */}
+      <Text style={styles.sectionTitle}>So friends can find you by phone</Text>
+      {editingPhone ? (
+        <View style={styles.searchRow}>
+          <TextField
+            style={styles.searchInput}
+            placeholder="Your phone number"
+            value={phoneInput}
+            onChangeText={setPhoneInput}
+            keyboardType="phone-pad"
+            onSubmitEditing={onSavePhone}
+            returnKeyType="done"
+            autoFocus
+          />
+          <Button label="Save" loading={busy} disabled={!phoneInput.trim()} onPress={onSavePhone} />
+        </View>
+      ) : myPhone ? (
+        <View style={styles.row}>
+          <Text style={styles.rowName}>{myPhone}</Text>
+          <Pressable
+            onPress={onRemovePhone}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Remove your phone number"
+          >
+            <Text style={styles.removeLink}>Remove</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Button
+          label="Add your phone number"
+          variant="outline"
+          onPress={() => {
+            setPhoneInput("");
+            setEditingPhone(true);
+          }}
+        />
+      )}
+      <Text style={styles.help}>
+        Optional — only used so contacts who search for your number can find
+        you. Never shown to anyone until you're friends.
+      </Text>
+
       {/* --- Find from contacts (native only) --- */}
       {Platform.OS !== "web" ? (
         <>
           <Text style={styles.sectionTitle}>From your contacts</Text>
           <Text style={styles.help}>
-            We check which of your contacts' emails are on Forked. Emails are
-            matched once and never stored.
+            We check which of your contacts' emails and phone numbers are on
+            Forked. Nothing is matched more than once or stored.
           </Text>
           <Button
             label="Find friends from contacts"
@@ -200,7 +304,12 @@ export default function FriendsScreen() {
             </Text>
           ) : null}
           {(contactMatches ?? []).map((m) =>
-            personRow(m.userId, m.displayName ?? m.email, m.email, "add"),
+            personRow(
+              m.userId,
+              m.displayName ?? m.email ?? m.phone ?? "Forked user",
+              m.email ?? m.phone,
+              "add",
+            ),
           )}
         </>
       ) : null}
@@ -228,7 +337,7 @@ export default function FriendsScreen() {
       {emailMatch
         ? personRow(
             emailMatch.userId,
-            emailMatch.displayName ?? emailMatch.email,
+            emailMatch.displayName ?? emailMatch.email ?? "Forked user",
             emailMatch.email,
             "add",
           )
@@ -237,6 +346,44 @@ export default function FriendsScreen() {
         <Text style={styles.help}>
           No Forked account with that email yet — share a list link with them
           instead.
+        </Text>
+      ) : null}
+
+      {/* --- Add by phone number --- */}
+      <Text style={styles.sectionTitle}>Add by phone number</Text>
+      <View style={styles.searchRow}>
+        <TextField
+          style={styles.searchInput}
+          placeholder="Their phone number"
+          value={lookupPhone}
+          onChangeText={(t) => {
+            setLookupPhone(t);
+            setPhoneMatch(null);
+            setPhoneMiss(false);
+          }}
+          keyboardType="phone-pad"
+          onSubmitEditing={onLookupPhone}
+          returnKeyType="search"
+        />
+        <Button
+          label="Find"
+          loading={busy}
+          disabled={!lookupPhone.trim()}
+          onPress={onLookupPhone}
+        />
+      </View>
+      {phoneMatch
+        ? personRow(
+            phoneMatch.userId,
+            phoneMatch.displayName ?? phoneMatch.phone ?? "Forked user",
+            phoneMatch.phone,
+            "add",
+          )
+        : null}
+      {phoneMiss ? (
+        <Text style={styles.help}>
+          No Forked account has that number saved yet — text them a list link
+          instead, or ask them to add their number on this screen.
         </Text>
       ) : null}
 

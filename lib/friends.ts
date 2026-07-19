@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import { getUserId, invokeEdgeFunction, supabase } from "./supabase";
 import { getDisplayNames } from "./profile";
+import { normalizePhone } from "./phone";
 import { logEvent } from "./analytics";
 
 // Friends are mutual, stored as one row per direction, written only by the
@@ -14,7 +15,8 @@ export interface Friend {
 
 export interface ContactMatch {
   userId: string;
-  email: string;
+  email: string | null;
+  phone: string | null;
   displayName: string | null;
 }
 
@@ -59,14 +61,24 @@ export async function removeFriend(userId: string): Promise<void> {
   await logEvent("friend_removed", { friend_id: userId });
 }
 
-// Which of these emails already have a Forked account? Emails are matched
-// server-side in memory and never stored (see match-contacts function).
-export async function matchContacts(emails: string[]): Promise<ContactMatch[]> {
-  const data = await invokeEdgeFunction<{ matches: ContactMatch[] }>(
+// Which of these emails/phone numbers already have a Forked account?
+// Matched server-side in memory and never stored (see match-contacts
+// function). Phone matching only finds people who've set a phone number on
+// their own profile (Friends screen) — it's opt-in, not everyone has one.
+export async function matchContacts(params: {
+  emails?: string[];
+  phones?: string[];
+}): Promise<ContactMatch[]> {
+  const data = await invokeEdgeFunction<{ matches: Partial<ContactMatch>[] }>(
     "match-contacts",
-    { emails },
+    params,
   );
-  return data.matches ?? [];
+  return (data.matches ?? []).map((m) => ({
+    userId: m.userId!,
+    email: m.email ?? null,
+    phone: m.phone ?? null,
+    displayName: m.displayName ?? null,
+  }));
 }
 
 // People you share a list with who aren't friends yet — the zero-permission
@@ -122,22 +134,30 @@ export async function pickContactPhone(): Promise<
   return { name: contact?.name ?? null, phone };
 }
 
-// Emails from the device address book, for contact matching. Native only —
-// dynamic import so the web bundle never touches the native module. Returns
-// null when permission is denied (vs [] for "granted but no emails").
-export async function getContactEmails(): Promise<string[] | null> {
+// Emails + phone numbers from the device address book, for contact matching
+// on both channels. Native only — dynamic import so the web bundle never
+// touches the native module. Returns null when permission is denied (vs an
+// empty result for "granted but no matchable contacts").
+export async function getContactInfo(): Promise<
+  { emails: string[]; phones: string[] } | null
+> {
   if (Platform.OS === "web") return null;
   const Contacts = await import("expo-contacts");
   const { status } = await Contacts.requestPermissionsAsync();
   if (status !== "granted") return null;
   const { data } = await Contacts.getContactsAsync({
-    fields: [Contacts.Fields.Emails],
+    fields: [Contacts.Fields.Emails, Contacts.Fields.PhoneNumbers],
   });
   const emails = new Set<string>();
+  const phones = new Set<string>();
   for (const contact of data) {
     for (const e of contact.emails ?? []) {
       if (e.email) emails.add(e.email.trim().toLowerCase());
     }
+    for (const p of contact.phoneNumbers ?? []) {
+      const normalized = p.number ? normalizePhone(p.number) : null;
+      if (normalized) phones.add(normalized);
+    }
   }
-  return [...emails];
+  return { emails: [...emails], phones: [...phones] };
 }
