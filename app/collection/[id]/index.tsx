@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
+import { HeaderBackButton } from "@react-navigation/elements";
 import {
   Link,
   Stack,
@@ -153,6 +154,25 @@ export default function CollectionDetailScreen() {
       <Stack.Screen
         options={{
           title: collection?.name ?? "List",
+          // The root layout's default header center is just the tappable
+          // Forked mark (no title text) — this screen is the one place the
+          // list's actual name still needs to show, so it's rendered here on
+          // the left, next to the back arrow (which a custom headerLeft
+          // otherwise swallows, hence rendering it explicitly).
+          headerLeft: (props) => (
+            <View style={styles.headerLeftRow}>
+              {props.canGoBack ? (
+                <HeaderBackButton
+                  tintColor={props.tintColor ?? colors.ink}
+                  onPress={() => router.back()}
+                  style={styles.headerBackBtn}
+                />
+              ) : null}
+              <Text style={styles.headerLeftTitle} numberOfLines={1}>
+                {collection?.name ?? "List"}
+              </Text>
+            </View>
+          ),
           headerRight: () => (
             <View style={styles.headerActions}>
               {isOwner ? (
@@ -321,6 +341,13 @@ export default function CollectionDetailScreen() {
 const themed = themedStyles((colors, type) => ({
   topRow: { flexDirection: "row", gap: spacing.sm },
   headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  headerLeftRow: { flexDirection: "row", alignItems: "center" },
+  headerBackBtn: { marginLeft: -8, marginRight: -4 },
+  headerLeftTitle: {
+    ...type.heading,
+    fontSize: 17,
+    maxWidth: 140,
+  },
   headerShare: { color: colors.primary, fontWeight: "600", fontSize: 16 },
   headerDelete: { color: colors.pass, fontWeight: "600", fontSize: 16 },
   subRow: {
