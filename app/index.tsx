@@ -10,6 +10,12 @@ import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
 import { radius, shadow, spacing, themedStyles, useTheme } from "../lib/theme";
 
+// Display-only — capitalizes just the first letter, unlike CSS
+// textTransform:"capitalize" which would capitalize every word.
+function capitalizeFirst(s: string): string {
+  return s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
 export default function CollectionsScreen() {
   const router = useRouter();
   const { scheme, colors } = useTheme();
@@ -91,7 +97,7 @@ export default function CollectionsScreen() {
       <View style={styles.header}>
         <Text style={styles.kicker}>THE TABLE IS YOURS</Text>
         <Text style={styles.greeting} accessibilityRole="header">
-          {displayName ? `Hungry, ${displayName}?` : "Where to next?"}
+          {displayName ? `Hungry, ${capitalizeFirst(displayName)}?` : "Where to next?"}
         </Text>
         <View style={styles.accountRow}>
           {editingName || (!displayName && !loading) ? (
@@ -187,7 +193,7 @@ export default function CollectionsScreen() {
                 accessibilityLabel={`Open list ${item.name}, ${item.restaurant_count ?? 0} spots`}
               >
                 <View style={styles.cardBody}>
-                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <Text style={styles.cardTitle}>{capitalizeFirst(item.name)}</Text>
                   <Text style={styles.cardMeta}>
                     {item.restaurant_count === 1
                       ? "1 spot saved"
