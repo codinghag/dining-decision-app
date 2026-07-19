@@ -30,6 +30,12 @@ import { RestaurantTags } from "../../../components/RestaurantTags";
 import { RestaurantPhoto } from "../../../components/RestaurantPhoto";
 import { radius, spacing, themedStyles, useTheme } from "../../../lib/theme";
 
+// Display-only — capitalizes just the first letter, unlike CSS
+// textTransform:"capitalize" which would capitalize every word.
+function capitalizeFirst(s: string): string {
+  return s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
 export default function CollectionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -189,7 +195,9 @@ export default function CollectionDetailScreen() {
         </Text>
       ) : null}
 
-      <Text style={styles.listName}>{collection?.name ?? "List"}</Text>
+      <Text style={styles.listName}>
+        {capitalizeFirst(collection?.name ?? "List")}
+      </Text>
 
       {feedback ? (
         <Text style={styles.feedback} accessibilityLiveRegion="polite">
