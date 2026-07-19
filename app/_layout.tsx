@@ -30,19 +30,17 @@ export default function RootLayout() {
   // content grounds follow the palette.
   const statusBarStyle = scheme === "dark" ? "light" : "dark";
   // Every screen's header centers a tappable brand mark next to the screen's
-  // title — tapping it jumps straight home, no walking back through the
-  // stack. Paired with the title (not replacing it) so screens keep their
-  // context ("List", "Friends", "Invite", …). headerTitleAlign: "center" is
+  // title slot — tapping it jumps straight home, no walking back through the
+  // stack, and no title text alongside it. headerTitleAlign: "center" is
   // needed because native-stack defaults it to "left" on Android. The back
   // arrow is left to the platform default, which renders on the left
   // automatically whenever there's somewhere to go back to.
-  const headerTitle = ({ children }: { children?: string }) => (
+  const headerTitle = () => (
     <Pressable
       onPress={() => router.navigate("/")}
       hitSlop={10}
-      style={styles.headerTitleRow}
       accessibilityRole="button"
-      accessibilityLabel={children ? `${children}. Go to home` : "Go to home"}
+      accessibilityLabel="Go to home"
     >
       <Image
         source={require("../assets/icon.png")}
@@ -50,7 +48,6 @@ export default function RootLayout() {
         accessible={false}
         importantForAccessibility="no"
       />
-      {children ? <Text style={styles.headerTitleText}>{children}</Text> : null}
     </Pressable>
   );
   const screenOptions = {
@@ -224,8 +221,6 @@ const themed = themedStyles((colors, type) => ({
   loadingMark: { width: 72, height: 72, borderRadius: 20, marginBottom: 4 },
   headerMark: { width: 32, height: 32, borderRadius: 9 },
   headerHomeMark: { width: 24, height: 24, borderRadius: 7 },
-  headerTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-  headerTitleText: { fontWeight: "700", fontSize: 17, color: colors.ink },
   loadingBrand: { ...type.title, marginBottom: 4 },
   loadingText: { ...type.body, color: colors.inkSecondary },
 }));
