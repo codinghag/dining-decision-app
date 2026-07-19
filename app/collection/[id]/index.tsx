@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
-import { HeaderBackButton } from "@react-navigation/elements";
 import {
   Link,
   Stack,
@@ -9,7 +8,6 @@ import {
   useRouter,
 } from "expo-router";
 import {
-  deleteCollection,
   ensureRestaurant,
   getCollection,
   listCollectionRestaurants,
@@ -17,7 +15,7 @@ import {
   type Collection,
   type Restaurant,
 } from "../../../lib/db";
-import { getUserId } from "../../../lib/supabase";
+import { shareRestaurant } from "../../../lib/invite";
 import { RestaurantSheet } from "../../../components/RestaurantSheet";
 import { startDecideSession } from "../../../lib/decide";
 import { getCurrentLocation, type Coords } from "../../../lib/location";
@@ -42,9 +40,7 @@ export default function CollectionDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deciding, setDeciding] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [restaurantToRemove, setRestaurantToRemove] = useState<Restaurant | null>(null);
   const [removing, setRemoving] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
@@ -58,14 +54,12 @@ export default function CollectionDetailScreen() {
     if (!id) return;
     try {
       setError(null);
-      const [c, r, uid] = await Promise.all([
+      const [c, r] = await Promise.all([
         getCollection(id),
         listCollectionRestaurants(id),
-        getUserId(),
       ]);
       setCollection(c);
       setRestaurants(r);
-      setUserId(uid);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -79,11 +73,12 @@ export default function CollectionDetailScreen() {
     }, [load]),
   );
 
-  // Share opens the invite hub: in-app invites for friends on Forked, the
-  // share-sheet link for everyone else.
-  function onShare() {
-    if (!id) return;
-    router.push(`/collection/${id}/invite`);
+  // Share a single restaurant (name + address + a Maps link) — clipboard
+  // fallback (web without the Web Share API) is invisible, so say so.
+  async function onShareRestaurant(r: Restaurant) {
+    setFeedback(null);
+    const outcome = await shareRestaurant(r);
+    if (outcome === "copied") setFeedback("Copied to clipboard ✓");
   }
 
   async function onDecide() {
@@ -117,20 +112,6 @@ export default function CollectionDetailScreen() {
     }
   }
 
-  async function onConfirmDelete() {
-    if (!id) return;
-    setDeleting(true);
-    setError(null);
-    try {
-      await deleteCollection(id);
-      router.replace("/");
-    } catch (e) {
-      setError(String(e));
-      setDeleting(false);
-      setConfirmDeleteVisible(false);
-    }
-  }
-
   async function onConfirmRemove() {
     if (!id || !restaurantToRemove) return;
     setRemoving(true);
@@ -147,67 +128,13 @@ export default function CollectionDetailScreen() {
   }
 
   const hasRestaurants = restaurants.length > 0;
-  const isOwner = !!userId && !!collection && collection.owner_id === userId;
 
   return (
     <ScreenContainer>
-      <Stack.Screen
-        options={{
-          title: collection?.name ?? "List",
-          // The root layout's default header center is just the tappable
-          // Forked mark (no title text) — this screen is the one place the
-          // list's actual name still needs to show, so it's rendered here on
-          // the left, next to the back arrow (which a custom headerLeft
-          // otherwise swallows, hence rendering it explicitly).
-          headerLeft: (props) => (
-            <View style={styles.headerLeftRow}>
-              {props.canGoBack ? (
-                <HeaderBackButton
-                  tintColor={props.tintColor ?? colors.ink}
-                  onPress={() => router.back()}
-                  style={styles.headerBackBtn}
-                />
-              ) : null}
-              <Text style={styles.headerLeftTitle} numberOfLines={1}>
-                {collection?.name ?? "List"}
-              </Text>
-            </View>
-          ),
-          headerRight: () => (
-            <View style={styles.headerActions}>
-              {isOwner ? (
-                <Pressable
-                  onPress={() => setConfirmDeleteVisible(true)}
-                  hitSlop={12}
-                  accessibilityRole="button"
-                  accessibilityLabel="Delete this list"
-                >
-                  <Text style={styles.headerDelete}>Delete</Text>
-                </Pressable>
-              ) : null}
-              <Pressable
-                onPress={onShare}
-                hitSlop={12}
-                accessibilityRole="button"
-                accessibilityLabel="Share an invite to this list"
-              >
-                <Text style={styles.headerShare}>Share</Text>
-              </Pressable>
-            </View>
-          ),
-        }}
-      />
-
-      <ConfirmDialog
-        visible={confirmDeleteVisible}
-        title="Delete this list?"
-        message={`"${collection?.name}" and all its saved restaurants will be gone for everyone in the group. This can't be undone.`}
-        confirmLabel="Delete"
-        destructive
-        loading={deleting}
-        onConfirm={onConfirmDelete}
-        onCancel={() => setConfirmDeleteVisible(false)}
-      />
+      {/* title is metadata only (browser tab / task switcher) — the header
+          itself is just the default back arrow + centered Forked mark; the
+          list's name is shown in the body below instead (see listName). */}
+      <Stack.Screen options={{ title: collection?.name ?? "List" }} />
 
       <ConfirmDialog
         visible={!!restaurantToRemove}
@@ -262,6 +189,13 @@ export default function CollectionDetailScreen() {
         </Text>
       ) : null}
 
+      <Text style={styles.listName}>{collection?.name ?? "List"}</Text>
+
+      {feedback ? (
+        <Text style={styles.feedback} accessibilityLiveRegion="polite">
+          {feedback}
+        </Text>
+      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <RestaurantSheet
@@ -298,14 +232,24 @@ export default function CollectionDetailScreen() {
                 <View style={styles.cardBody}>
                   <View style={styles.cardHeader}>
                     <Text style={styles.cardTitle}>{item.name}</Text>
-                    <Pressable
-                      onPress={() => setRestaurantToRemove(item)}
-                      hitSlop={12}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Remove ${item.name} from this list`}
-                    >
-                      <Text style={styles.cardRemove}>Remove</Text>
-                    </Pressable>
+                    <View style={styles.cardActions}>
+                      <Pressable
+                        onPress={() => setRestaurantToRemove(item)}
+                        hitSlop={12}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${item.name} from this list`}
+                      >
+                        <Text style={styles.cardRemove}>Remove</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => onShareRestaurant(item)}
+                        hitSlop={12}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Share ${item.name}`}
+                      >
+                        <Text style={styles.cardShare}>Share</Text>
+                      </Pressable>
+                    </View>
                   </View>
                   <RestaurantTags
                     cuisine={item.cuisine}
@@ -340,16 +284,7 @@ export default function CollectionDetailScreen() {
 
 const themed = themedStyles((colors, type) => ({
   topRow: { flexDirection: "row", gap: spacing.sm },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  headerLeftRow: { flexDirection: "row", alignItems: "center" },
-  headerBackBtn: { marginLeft: -8, marginRight: -4 },
-  headerLeftTitle: {
-    ...type.heading,
-    fontSize: 17,
-    maxWidth: 140,
-  },
-  headerShare: { color: colors.primary, fontWeight: "600", fontSize: 16 },
-  headerDelete: { color: colors.pass, fontWeight: "600", fontSize: 16 },
+  listName: { ...type.heading, marginTop: spacing.sm },
   subRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -374,9 +309,12 @@ const themed = themedStyles((colors, type) => ({
   cardBody: { flex: 1, gap: spacing.xs },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.sm },
   cardTitle: { ...type.subtitle, flex: 1 },
+  cardActions: { alignItems: "flex-end", gap: 4 },
   cardRemove: { ...type.label, color: colors.pass },
+  cardShare: { ...type.label, color: colors.primary },
   cardSub: { ...type.body, color: colors.inkSecondary },
   cardMetaRow: { flexDirection: "row", gap: spacing.md, flexWrap: "wrap", marginTop: spacing.xs },
   cardMeta: { ...type.caption },
+  feedback: { ...type.body, color: colors.yes, marginTop: spacing.sm },
   error: { color: colors.pass, marginTop: spacing.sm },
 }));
