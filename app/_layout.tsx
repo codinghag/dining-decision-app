@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Image, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -17,6 +17,7 @@ type Phase = "loading" | "gate" | "app";
 export default function RootLayout() {
   const [phase, setPhase] = useState<Phase>("loading");
   const pathname = usePathname();
+  const router = useRouter();
   const isPublicRoute = pathname === "/privacy";
   // The invite edge: any /collection/* route (join, browse, decide) works
   // without an account — losing a voter at the login screen is the one thing
@@ -28,12 +29,31 @@ export default function RootLayout() {
   // Status bar icons flip against the themed background; screen headers and
   // content grounds follow the palette.
   const statusBarStyle = scheme === "dark" ? "light" : "dark";
+  // Every screen's header carries a tappable brand mark that jumps straight
+  // home — no walking back through the stack. The home screen overrides this
+  // (its title already IS the mark).
+  const homeMark = () => (
+    <Pressable
+      onPress={() => router.navigate("/")}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Go to home"
+    >
+      <Image
+        source={require("../assets/icon.png")}
+        style={styles.headerHomeMark}
+        accessible={false}
+        importantForAccessibility="no"
+      />
+    </Pressable>
+  );
   const screenOptions = {
     headerStyle: { backgroundColor: colors.background },
     headerTintColor: colors.ink,
     headerTitleStyle: { fontWeight: "700" as const },
     headerShadowVisible: false,
     contentStyle: { backgroundColor: colors.background },
+    headerRight: homeMark,
   };
 
   // Auth gates persistence, not participation. Guest routes (/collection/*)
@@ -84,7 +104,6 @@ export default function RootLayout() {
   // arrives here. Native-module only (self-disables on web and in Expo Go);
   // held until the user is through the sign-in gate, then routed to the
   // save flow.
-  const router = useRouter();
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntent();
   useEffect(() => {
     if (phase !== "app" || !hasShareIntent) return;
@@ -149,6 +168,8 @@ export default function RootLayout() {
                     accessibilityLabel="Forked"
                   />
                 ),
+                // Home already wears the mark as its title.
+                headerRight: () => null,
               }}
             />
             <Stack.Screen
@@ -198,6 +219,7 @@ const themed = themedStyles((colors, type) => ({
   },
   loadingMark: { width: 72, height: 72, borderRadius: 20, marginBottom: 4 },
   headerMark: { width: 32, height: 32, borderRadius: 9 },
+  headerHomeMark: { width: 28, height: 28, borderRadius: 8 },
   loadingBrand: { ...type.title, marginBottom: 4 },
   loadingText: { ...type.body, color: colors.inkSecondary },
 }));

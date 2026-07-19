@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from "react-native";
 import {
   Link,
   Stack,
@@ -173,6 +173,19 @@ export default function CollectionDetailScreen() {
               >
                 <Text style={styles.headerShare}>Share</Text>
               </Pressable>
+              <Pressable
+                onPress={() => router.navigate("/")}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Go to home"
+              >
+                <Image
+                  source={require("../../../assets/icon.png")}
+                  style={styles.headerHomeMark}
+                  accessible={false}
+                  importantForAccessibility="no"
+                />
+              </Pressable>
             </View>
           ),
         }}
@@ -321,6 +334,7 @@ export default function CollectionDetailScreen() {
 const themed = themedStyles((colors, type) => ({
   topRow: { flexDirection: "row", gap: spacing.sm },
   headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  headerHomeMark: { width: 28, height: 28, borderRadius: 8 },
   headerShare: { color: colors.primary, fontWeight: "600", fontSize: 16 },
   headerDelete: { color: colors.pass, fontWeight: "600", fontSize: 16 },
   subRow: {
