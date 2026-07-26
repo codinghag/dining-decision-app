@@ -8,10 +8,12 @@ import {
   useRouter,
 } from "expo-router";
 import {
+  deleteCollection,
   ensureRestaurant,
   getCollection,
   listCollectionRestaurants,
   removeRestaurantFromCollection,
+  renameCollection,
   type Collection,
   type Restaurant,
 } from "../../../lib/db";
@@ -28,6 +30,7 @@ import { EmptyState } from "../../../components/EmptyState";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { RestaurantTags } from "../../../components/RestaurantTags";
 import { RestaurantPhoto } from "../../../components/RestaurantPhoto";
+import { TextField } from "../../../components/TextField";
 import { radius, spacing, themedStyles, useTheme } from "../../../lib/theme";
 
 // Display-only — capitalizes just the first letter, unlike CSS
@@ -52,6 +55,11 @@ export default function CollectionDetailScreen() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [wildcard, setWildcard] = useState(false);
   const [location, setLocation] = useState<Coords | null>(null);
+  const [editingListName, setEditingListName] = useState(false);
+  const [listNameInput, setListNameInput] = useState("");
+  const [savingListName, setSavingListName] = useState(false);
+  const [confirmingDeleteList, setConfirmingDeleteList] = useState(false);
+  const [deletingList, setDeletingList] = useState(false);
   useEffect(() => {
     getCurrentLocation().then(setLocation);
   }, []);
@@ -133,6 +141,35 @@ export default function CollectionDetailScreen() {
     }
   }
 
+  async function onSaveListName() {
+    const trimmed = listNameInput.trim();
+    if (!id || !trimmed) return;
+    setSavingListName(true);
+    setError(null);
+    try {
+      await renameCollection(id, trimmed);
+      setCollection((c) => (c ? { ...c, name: trimmed } : c));
+      setEditingListName(false);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSavingListName(false);
+    }
+  }
+
+  async function onConfirmDeleteList() {
+    if (!id) return;
+    setDeletingList(true);
+    setError(null);
+    try {
+      await deleteCollection(id);
+      router.replace("/");
+    } catch (e) {
+      setError(String(e));
+      setDeletingList(false);
+    }
+  }
+
   const hasRestaurants = restaurants.length > 0;
 
   return (
@@ -151,6 +188,17 @@ export default function CollectionDetailScreen() {
         loading={removing}
         onConfirm={onConfirmRemove}
         onCancel={() => setRestaurantToRemove(null)}
+      />
+
+      <ConfirmDialog
+        visible={confirmingDeleteList}
+        title="Delete this list?"
+        message={`"${collection?.name ?? "This list"}" and all its saved spots will be deleted for everyone. This can't be undone.`}
+        confirmLabel="Delete"
+        destructive
+        loading={deletingList}
+        onConfirm={onConfirmDeleteList}
+        onCancel={() => setConfirmingDeleteList(false)}
       />
 
       <View style={styles.topRow}>
@@ -195,9 +243,50 @@ export default function CollectionDetailScreen() {
         </Text>
       ) : null}
 
-      <Text style={styles.listName}>
-        {capitalizeFirst(collection?.name ?? "List")}
-      </Text>
+      {editingListName ? (
+        <View style={styles.listNameEditRow}>
+          <TextField
+            style={styles.input}
+            value={listNameInput}
+            onChangeText={setListNameInput}
+            onSubmitEditing={onSaveListName}
+            returnKeyType="done"
+            autoFocus
+          />
+          <Button
+            label="Save"
+            loading={savingListName}
+            onPress={onSaveListName}
+            disabled={!listNameInput.trim()}
+          />
+          <Button label="Cancel" variant="outline" onPress={() => setEditingListName(false)} />
+        </View>
+      ) : (
+        <View style={styles.listNameRow}>
+          <Text style={styles.listName}>
+            {capitalizeFirst(collection?.name ?? "List")}
+          </Text>
+          <Pressable
+            onPress={() => {
+              setListNameInput(collection?.name ?? "");
+              setEditingListName(true);
+            }}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Rename this list"
+          >
+            <Text style={styles.listNameAction}>Rename</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setConfirmingDeleteList(true)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Delete this list"
+          >
+            <Text style={[styles.listNameAction, styles.listNameDelete]}>Delete</Text>
+          </Pressable>
+        </View>
+      )}
 
       {feedback ? (
         <Text style={styles.feedback} accessibilityLiveRegion="polite">
@@ -292,7 +381,22 @@ export default function CollectionDetailScreen() {
 
 const themed = themedStyles((colors, type) => ({
   topRow: { flexDirection: "row", gap: spacing.sm },
-  listName: { ...type.heading, marginTop: spacing.sm },
+  listName: { ...type.heading, flexShrink: 1 },
+  listNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  listNameEditRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  listNameAction: { ...type.label, color: colors.primary },
+  listNameDelete: { color: colors.pass },
+  input: { flex: 1 },
   subRow: {
     flexDirection: "row",
     alignItems: "center",

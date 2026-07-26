@@ -85,6 +85,13 @@ export async function deleteCollection(id: string): Promise<void> {
   await logEvent("collection_deleted", { collection_id: id });
 }
 
+// Owner-only (enforced by RLS — collections_update_owner).
+export async function renameCollection(id: string, name: string): Promise<void> {
+  const { error } = await supabase.from("collections").update({ name }).eq("id", id);
+  if (error) throw error;
+  await logEvent("collection_renamed", { collection_id: id });
+}
+
 // Remove a single restaurant from a collection (deletes only the join row;
 // the shared restaurants row is left for any other collections). Any member
 // may remove one — enforced by RLS (collection_restaurants_delete).
