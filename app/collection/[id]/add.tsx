@@ -51,6 +51,10 @@ export default function AddRestaurantScreen() {
   const [socialLink, setSocialLink] = useState<SocialLink | null>(null);
   const [socialQuery, setSocialQuery] = useState("");
   const [socialResults, setSocialResults] = useState<PlaceSearchResult[]>([]);
+  // Set when a pasted website's og:title scrape can't be confidently matched
+  // to a real Places result — a best-effort name to save as-is rather than a
+  // dead end (fixable later via "Find & fill details" on the saved row).
+  const [unresolvedGuess, setUnresolvedGuess] = useState<{ name: string; website: string } | null>(null);
 
   // Search state
   const [query, setQuery] = useState("");
@@ -105,6 +109,7 @@ export default function AddRestaurantScreen() {
     setResolved(null);
     setSocialLink(null);
     setSocialResults([]);
+    setUnresolvedGuess(null);
 
     // Instagram/TikTok post? Read its caption server-side and auto-suggest
     // matching restaurants — one tap to save when it works. The post URL is
@@ -140,15 +145,51 @@ export default function AddRestaurantScreen() {
       // match so the user only has to confirm, never type a name.
       try {
         const info = await resolveSocialPost(trimmed);
-        if (!info.suggestedQuery) throw mapsErr;
-        const found = await searchPlaces(info.suggestedQuery, location ?? undefined);
-        if (found.length === 0) throw mapsErr;
+        const host = trimmed.match(/^https?:\/\/(?:www\.)?([^/\s]+)/i)?.[1] ?? null;
+        const guessName = info.suggestedQuery ?? host;
+        if (!guessName) throw mapsErr;
+        const found = info.suggestedQuery
+          ? await searchPlaces(info.suggestedQuery, location ?? undefined)
+          : [];
+        if (found.length === 0) {
+          // Scraped a title/host but couldn't confirm a real Places match —
+          // still better than a dead end.
+          setUnresolvedGuess({ name: guessName, website: trimmed });
+          return;
+        }
         const place = await getPlaceDetails(found[0].google_place_id);
         setResolved(place);
       } catch {
         setError(String(mapsErr));
       }
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSaveUnresolved() {
+    if (!unresolvedGuess) return;
+    await save(
+      { name: unresolvedGuess.name, website: unresolvedGuess.website },
+      "quick_add",
+    );
+  }
+
+  async function onSocialSaveUnmatched() {
+    if (!collectionId || !socialLink) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const name =
+        socialQuery.trim() ||
+        `${socialLink.platform === "instagram" ? "Instagram" : "TikTok"} post`;
+      await saveRestaurantToCollection(collectionId, { name, address: null }, "quick_add", {
+        source_url: socialLink.url,
+        source_platform: socialLink.platform,
+      });
+      done();
+    } catch (e) {
+      setError(String(e));
       setBusy(false);
     }
   }
@@ -370,6 +411,23 @@ export default function AddRestaurantScreen() {
                   </Card>
                 </Pressable>
               ))}
+              <Button
+                label="Can't find it? Save anyway"
+                variant="outline"
+                loading={busy}
+                onPress={onSocialSaveUnmatched}
+              />
+            </Card>
+          )}
+
+          {unresolvedGuess && (
+            <Card style={styles.confirm}>
+              <Text style={styles.confirmTitle}>{unresolvedGuess.name}</Text>
+              <Text style={styles.help}>
+                Couldn't confirm a match on Google Places — save it as-is and
+                fix the details later.
+              </Text>
+              <Button label="Save to list" loading={busy} onPress={onSaveUnresolved} />
             </Card>
           )}
 

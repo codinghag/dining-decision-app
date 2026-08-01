@@ -155,6 +155,47 @@ export default function ShareTargetScreen() {
     }
   }
 
+  // Best-effort name when we can't confidently match a real Places result:
+  // whatever the user has typed/been suggested, else the post/page's own
+  // label, else the link's domain. Always something better than a dead end.
+  function fallbackName(): string {
+    if (query.trim()) return query.trim();
+    const currentSocial = matchSocialLink(shared);
+    if (currentSocial) {
+      return `${currentSocial.platform === "instagram" ? "Instagram" : "TikTok"} post`;
+    }
+    const host = (genericLink ?? shared).match(/^https?:\/\/(?:www\.)?([^/\s]+)/i)?.[1];
+    return host ?? "Shared restaurant";
+  }
+
+  // Caption/og-tag scraping is best effort and doesn't always turn up a
+  // confident Places match. Rather than leaving the user stuck on "which
+  // restaurant is this?" forever, let them save with a placeholder name and
+  // the source link — the existing "Find & fill details" flow on the saved
+  // row lets them resolve it properly later.
+  async function onSaveUnmatched() {
+    if (!collectionId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const place: Parameters<typeof saveRestaurantToCollection>[1] = {
+        name: fallbackName(),
+        address: null,
+      };
+      if (!social && genericLink) place.website = genericLink;
+      await saveRestaurantToCollection(
+        collectionId,
+        place,
+        "quick_add",
+        social ? { source_url: social.url, source_platform: social.platform } : undefined,
+      );
+      router.replace(`/collection/${collectionId}`);
+    } catch (e) {
+      setError(String(e));
+      setBusy(false);
+    }
+  }
+
   async function savePlace(place: Place) {
     if (!collectionId) return;
     setBusy(true);
@@ -288,6 +329,14 @@ export default function ShareTargetScreen() {
               </Card>
             </Pressable>
           ))}
+          {!suggesting ? (
+            <Button
+              label="Can't find it? Save anyway"
+              variant="outline"
+              loading={busy}
+              onPress={onSaveUnmatched}
+            />
+          ) : null}
         </View>
       )}
     </ScrollView>
