@@ -148,6 +148,11 @@ export async function searchText(
     body: JSON.stringify({
       textQuery: query,
       maxResultCount: maxResults,
+      // This is a dining app — don't surface non-restaurant businesses that
+      // Text Search's free-text matching would otherwise let through (shops,
+      // hotels, etc. sharing words with the query).
+      includedType: "restaurant",
+      strictTypeFiltering: true,
       ...(location && {
         locationBias: {
           circle: {

@@ -11,6 +11,7 @@ import {
 import {
   isUniqueViolation,
   removeRestaurantFromCollection,
+  renameRestaurant,
   saveRestaurantToCollection,
   updateRestaurantDetails,
   type Restaurant,
@@ -131,6 +132,26 @@ export function RestaurantSheet({
         const loc = await getCurrentLocation();
         setFixResults(await searchPlaces(query, loc ?? undefined));
       }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setFixBusy(false);
+    }
+  }
+
+  // Skip Places matching entirely and just save the typed text as the name
+  // — for when the restaurant genuinely isn't findable on Google, or the
+  // user just wants to label the spot themselves right now.
+  async function onRename() {
+    if (!fixQuery.trim()) return;
+    setFixBusy(true);
+    setError(null);
+    try {
+      const updated = await renameRestaurant(r.id, fixQuery.trim());
+      setFixOpen(false);
+      setFixResults([]);
+      setFeedback("Renamed ✓");
+      onChanged?.(updated);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -270,6 +291,13 @@ export function RestaurantSheet({
                       />
                       <Button label="Go" loading={fixBusy} onPress={onFixSearch} />
                     </View>
+                    <Button
+                      label="Just rename it to this (skip matching)"
+                      variant="outline"
+                      loading={fixBusy}
+                      disabled={!fixQuery.trim()}
+                      onPress={onRename}
+                    />
                     {fixResults.map((match) => (
                       <Pressable
                         key={match.google_place_id}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import {
@@ -370,14 +370,20 @@ export default function AddRestaurantScreen() {
 
           {socialLink && (
             <Card style={styles.importRow}>
-              <View style={styles.importRowHeader}>
-                <Text style={styles.importBadge}>
-                  {socialLink.platform === "instagram" ? "Instagram" : "TikTok"} post
-                </Text>
-                <Text style={styles.importUrl} numberOfLines={1}>
-                  {socialLink.url}
-                </Text>
-              </View>
+              <Pressable
+                onPress={() => Linking.openURL(socialLink.url).catch(() => {})}
+                accessibilityRole="link"
+                accessibilityLabel="Open the original post"
+              >
+                <View style={styles.importRowHeader}>
+                  <Text style={styles.importBadge}>
+                    {socialLink.platform === "instagram" ? "Instagram" : "TikTok"} post ↗
+                  </Text>
+                  <Text style={styles.importUrl} numberOfLines={1}>
+                    {socialLink.url}
+                  </Text>
+                </View>
+              </Pressable>
               <Text style={styles.help}>
                 We'll save this post with the restaurant — which spot is it?
               </Text>

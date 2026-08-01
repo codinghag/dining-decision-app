@@ -303,6 +303,25 @@ export async function updateRestaurantDetails(
   return data as Restaurant;
 }
 
+// Plain rename, no Places match involved — for when "Find & fill details"
+// can't find the right result and the user just wants to label the spot
+// themselves. RLS (restaurants_update_unresolved, 0013) only permits this
+// while google_place_id is still null.
+export async function renameRestaurant(
+  restaurantId: string,
+  name: string,
+): Promise<Restaurant> {
+  const { data, error } = await supabase
+    .from("restaurants")
+    .update({ name })
+    .eq("id", restaurantId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  await logEvent("restaurant_renamed", { restaurant_id: restaurantId });
+  return data as Restaurant;
+}
+
 // Postgres unique-constraint violation (e.g. the matched google_place_id
 // already exists as another restaurants row).
 export function isUniqueViolation(err: unknown): boolean {

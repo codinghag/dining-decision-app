@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import {
   getOrCreateGeneralCollection,
@@ -228,16 +228,26 @@ export default function ShareTargetScreen() {
       <Stack.Screen options={{ title: "Save to Forked" }} />
 
       {social || shared ? (
-        <Card style={styles.sourceCard}>
-          <Text style={styles.sourceBadge}>
-            {social
-              ? `${social.platform === "instagram" ? "Instagram" : "TikTok"} post`
-              : "Shared link"}
-          </Text>
-          <Text style={styles.sourceUrl} numberOfLines={2}>
-            {social?.url ?? shared}
-          </Text>
-        </Card>
+        <Pressable
+          onPress={() => {
+            const url = social?.url ?? genericLink ?? shared.match(/https?:\/\/\S+/)?.[0];
+            if (url) Linking.openURL(url).catch(() => {});
+          }}
+          accessibilityRole="link"
+          accessibilityLabel="Open the original post or link"
+        >
+          <Card style={styles.sourceCard}>
+            <Text style={styles.sourceBadge}>
+              {social
+                ? `${social.platform === "instagram" ? "Instagram" : "TikTok"} post`
+                : "Shared link"}{" "}
+              ↗
+            </Text>
+            <Text style={styles.sourceUrl} numberOfLines={2}>
+              {social?.url ?? shared}
+            </Text>
+          </Card>
+        </Pressable>
       ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
