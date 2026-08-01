@@ -6,11 +6,13 @@ import {
   getContactInfo,
   listFriends,
   matchContacts,
+  pickContactPhone,
   removeFriend,
   suggestedFriends,
   type ContactMatch,
   type Friend,
 } from "../lib/friends";
+import { textAppInvite } from "../lib/invite";
 import { clearMyPhone, getMyPhone, setMyPhone } from "../lib/profile";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { TextField } from "../components/TextField";
@@ -43,6 +45,8 @@ export default function FriendsScreen() {
   const [phoneMatch, setPhoneMatch] = useState<ContactMatch | null>(null);
   const [phoneMiss, setPhoneMiss] = useState(false);
   const [contactMatches, setContactMatches] = useState<ContactMatch[] | null>(null);
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviteFeedback, setInviteFeedback] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -189,6 +193,32 @@ export default function FriendsScreen() {
     }
   }
 
+  // Not on Forked yet — send them a text with the app link, not a specific
+  // list invite. Separate from contact matching above, which only surfaces
+  // people already on Forked.
+  async function onTextAppInvite(phone: string, name?: string | null) {
+    if (!phone.trim()) return;
+    setError(null);
+    setInviteFeedback(null);
+    try {
+      await textAppInvite(phone, name);
+      setInvitePhone("");
+      setInviteFeedback("Text opened ✓");
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function onPickInviteContact() {
+    setError(null);
+    try {
+      const picked = await pickContactPhone();
+      if (picked) await onTextAppInvite(picked.phone, picked.name);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   function personRow(
     userId: string,
     label: string,
@@ -311,6 +341,42 @@ export default function FriendsScreen() {
               "add",
             ),
           )}
+        </>
+      ) : null}
+
+      {/* --- Invite someone who isn't on Forked yet (native only) --- */}
+      {Platform.OS !== "web" ? (
+        <>
+          <Text style={styles.sectionTitle}>Invite someone to Forked</Text>
+          <Text style={styles.help}>
+            Not on Forked yet? Text them the app link.
+          </Text>
+          {inviteFeedback ? (
+            <Text style={styles.help} accessibilityLiveRegion="polite">
+              {inviteFeedback}
+            </Text>
+          ) : null}
+          <Button
+            label="📱 Pick from contacts"
+            variant="outline"
+            onPress={onPickInviteContact}
+          />
+          <View style={styles.searchRow}>
+            <TextField
+              style={styles.searchInput}
+              placeholder="Their phone number"
+              value={invitePhone}
+              onChangeText={setInvitePhone}
+              keyboardType="phone-pad"
+              onSubmitEditing={() => onTextAppInvite(invitePhone)}
+              returnKeyType="send"
+            />
+            <Button
+              label="Text invite"
+              disabled={!invitePhone.trim()}
+              onPress={() => onTextAppInvite(invitePhone)}
+            />
+          </View>
         </>
       ) : null}
 

@@ -81,6 +81,19 @@ export async function textCollectionInvite(
   await logEvent("invite_sent", { collection_id: collectionId, outcome: "sms" });
 }
 
+// Invite someone who isn't on Forked yet, not tied to any particular list —
+// for the Friends screen's "invite people to Forked" flow. Points at the
+// site root rather than a collection join link, since there's no list to
+// join yet.
+export async function textAppInvite(phone: string, name?: string | null): Promise<void> {
+  const message = `${name ? `Hey ${name}, ` : ""}come pick where we're eating on Forked: ${WEB_ORIGIN}`;
+  const sep = Platform.OS === "ios" ? "&" : "?";
+  await Linking.openURL(
+    `sms:${encodeURIComponent(phone.trim())}${sep}body=${encodeURIComponent(message)}`,
+  );
+  await logEvent("app_invite_sent", { outcome: "sms" });
+}
+
 // Share a single restaurant (name + address + a Google Maps link that works
 // for anyone, app or not).
 export async function shareRestaurant(r: Restaurant): Promise<ShareOutcome> {

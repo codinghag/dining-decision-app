@@ -195,6 +195,10 @@ export default function RootLayout() {
             />
             <Stack.Screen name="friends" options={{ title: "Friends" }} />
             <Stack.Screen
+              name="social-saves"
+              options={{ title: "Instagram & TikTok saves" }}
+            />
+            <Stack.Screen
               name="collection/[id]/decide/[sessionId]"
               options={{ title: "Let's Decide" }}
             />

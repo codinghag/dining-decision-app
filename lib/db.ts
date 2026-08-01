@@ -204,6 +204,32 @@ export async function listCollectionRestaurants(
     .filter((r): r is Restaurant => r != null);
 }
 
+// A restaurant saved from Instagram/TikTok, with which list it lives in so
+// it can be shared/removed from that list directly (a restaurant can be
+// saved from a post into more than one list -- one row per membership).
+export interface SocialSave extends Restaurant {
+  collectionId: string;
+  collectionName: string;
+}
+
+// Cross-list feed of every social-sourced save, newest first. Reuses
+// listCollections/listCollectionRestaurants (both RLS-scoped to the caller's
+// own collections) rather than querying restaurants directly, since that
+// table's own select policy is globally readable and isn't scoped to
+// membership.
+export async function listSocialSaves(): Promise<SocialSave[]> {
+  const collections = await listCollections();
+  const perCollection = await Promise.all(
+    collections.map(async (c) => {
+      const restaurants = await listCollectionRestaurants(c.id);
+      return restaurants
+        .filter((r) => r.source_platform === "instagram" || r.source_platform === "tiktok")
+        .map((r) => ({ ...r, collectionId: c.id, collectionName: c.name }));
+    }),
+  );
+  return perCollection.flat().sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
 export type CaptureMethod = "link" | "search" | "quick_add" | "social_import";
 
 export interface SocialSource {

@@ -132,6 +132,14 @@ export default function CollectionsScreen() {
               >
                 <Text style={styles.accountLink}>👥 Friends</Text>
               </Pressable>
+              <Pressable
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Open Instagram and TikTok saves"
+                onPress={() => router.push("/social-saves")}
+              >
+                <Text style={styles.accountLink}>📷 Saves</Text>
+              </Pressable>
               {displayName ? (
                 <Pressable
                   hitSlop={12}
