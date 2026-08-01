@@ -41,7 +41,11 @@ export default function CollectionsScreen() {
         getMyDisplayName(),
         getAuthStatus(),
       ]);
-      setCollections(data);
+      // General (the catch-all quick-save list, if the user has one) always
+      // leads, so it's easy to find and sort out of.
+      setCollections(
+        [...data].sort((a, b) => Number(b.is_general) - Number(a.is_general)),
+      );
       setDisplayName(myName);
       setSyncEmail(auth.email);
     } catch (e) {
@@ -193,7 +197,10 @@ export default function CollectionsScreen() {
                 accessibilityLabel={`Open list ${item.name}, ${item.restaurant_count ?? 0} spots`}
               >
                 <View style={styles.cardBody}>
-                  <Text style={styles.cardTitle}>{capitalizeFirst(item.name)}</Text>
+                  <Text style={styles.cardTitle}>
+                    {item.is_general ? "⚡ " : ""}
+                    {capitalizeFirst(item.name)}
+                  </Text>
                   <Text style={styles.cardMeta}>
                     {item.restaurant_count === 1
                       ? "1 spot saved"

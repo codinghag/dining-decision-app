@@ -133,8 +133,21 @@ export default function AddRestaurantScreen() {
     try {
       const place = await resolveMapsLink(trimmed);
       setResolved(place);
-    } catch (e) {
-      setError(String(e));
+    } catch (mapsErr) {
+      // Not a Google Maps link — try it as the restaurant's own website:
+      // scrape its og:title (resolve-social-post works on any URL, not just
+      // Instagram/TikTok), search Places with that, and auto-fill the top
+      // match so the user only has to confirm, never type a name.
+      try {
+        const info = await resolveSocialPost(trimmed);
+        if (!info.suggestedQuery) throw mapsErr;
+        const found = await searchPlaces(info.suggestedQuery, location ?? undefined);
+        if (found.length === 0) throw mapsErr;
+        const place = await getPlaceDetails(found[0].google_place_id);
+        setResolved(place);
+      } catch {
+        setError(String(mapsErr));
+      }
     } finally {
       setBusy(false);
     }
@@ -302,10 +315,11 @@ export default function AddRestaurantScreen() {
       {tab === "link" && (
         <View style={styles.section}>
           <Text style={styles.help}>
-            Paste a Google Maps, Instagram, or TikTok link.
+            Paste a Google Maps, Instagram, or TikTok link — or the
+            restaurant's own website.
           </Text>
           <TextField
-            placeholder="https://maps.app.goo.gl/… or instagram.com/reel/…"
+            placeholder="https://maps.app.goo.gl/…, a restaurant's website, or instagram.com/reel/…"
             value={link}
             onChangeText={setLink}
             autoCapitalize="none"

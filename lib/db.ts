@@ -7,6 +7,7 @@ export interface Collection {
   name: string;
   owner_id: string;
   created_at: string;
+  is_general: boolean;
   // Present on list reads (embedded count); absent on single-row reads.
   restaurant_count?: number;
 }
@@ -76,6 +77,45 @@ export async function createCollection(name: string): Promise<Collection> {
   return data as Collection;
 }
 
+// The user's catch-all list for quick, no-decision-required saves (pasted
+// website links, share-sheet drops) — created lazily on first use. At most
+// one per owner (idx_collections_general_per_owner, 0018); safe to call
+// concurrently since the unique index makes a racing insert fail, and we
+// just re-select on that race instead of erroring.
+export async function getOrCreateGeneralCollection(): Promise<Collection> {
+  const userId = await getUserId();
+  if (!userId) throw new Error("Not signed in");
+
+  const { data: existing, error: findErr } = await supabase
+    .from("collections")
+    .select("*")
+    .eq("owner_id", userId)
+    .eq("is_general", true)
+    .maybeSingle();
+  if (findErr) throw findErr;
+  if (existing) return existing as Collection;
+
+  const { data: inserted, error: insErr } = await supabase
+    .from("collections")
+    .insert({ name: "General", owner_id: userId, is_general: true })
+    .select("*")
+    .single();
+  if (!insErr) {
+    await logEvent("collection_created", { collection_id: inserted.id, is_general: true });
+    return inserted as Collection;
+  }
+
+  // Lost a race with another insert of the same user's general list.
+  const { data: retry, error: retryErr } = await supabase
+    .from("collections")
+    .select("*")
+    .eq("owner_id", userId)
+    .eq("is_general", true)
+    .single();
+  if (retryErr) throw insErr;
+  return retry as Collection;
+}
+
 // Owner-only (enforced by RLS — collections_delete_owner). Cascades to
 // collection_members, collection_restaurants, and decide_sessions/votes,
 // which all reference collections(id) on delete cascade.
@@ -107,6 +147,36 @@ export async function removeRestaurantFromCollection(
   if (error) throw error;
   await logEvent("restaurant_removed", {
     collection_id: collectionId,
+    restaurant_id: restaurantId,
+  });
+}
+
+// Move a restaurant from one list to another: link it into the target, then
+// drop it from the source. The restaurants row itself is untouched (it's
+// shared/deduped by google_place_id) — only the join rows change. Link-first
+// so a failure partway through leaves the restaurant in both lists rather
+// than in neither.
+export async function moveRestaurantToCollection(
+  fromCollectionId: string,
+  toCollectionId: string,
+  restaurantId: string,
+): Promise<void> {
+  const userId = await getUserId();
+  if (!userId) throw new Error("Not signed in");
+  if (fromCollectionId === toCollectionId) return;
+
+  const { error: linkErr } = await supabase
+    .from("collection_restaurants")
+    .upsert(
+      { collection_id: toCollectionId, restaurant_id: restaurantId, added_by: userId },
+      { onConflict: "collection_id,restaurant_id", ignoreDuplicates: true },
+    );
+  if (linkErr) throw linkErr;
+
+  await removeRestaurantFromCollection(fromCollectionId, restaurantId);
+  await logEvent("restaurant_moved", {
+    from_collection_id: fromCollectionId,
+    to_collection_id: toCollectionId,
     restaurant_id: restaurantId,
   });
 }

@@ -12,12 +12,14 @@ import {
   ensureRestaurant,
   getCollection,
   listCollectionRestaurants,
+  moveRestaurantToCollection,
   removeRestaurantFromCollection,
   renameCollection,
   type Collection,
   type Restaurant,
 } from "../../../lib/db";
 import { shareRestaurant } from "../../../lib/invite";
+import { MoveToListSheet } from "../../../components/MoveToListSheet";
 import { RestaurantSheet } from "../../../components/RestaurantSheet";
 import { startDecideSession } from "../../../lib/decide";
 import { getCurrentLocation, type Coords } from "../../../lib/location";
@@ -60,6 +62,8 @@ export default function CollectionDetailScreen() {
   const [savingListName, setSavingListName] = useState(false);
   const [confirmingDeleteList, setConfirmingDeleteList] = useState(false);
   const [deletingList, setDeletingList] = useState(false);
+  const [restaurantToMove, setRestaurantToMove] = useState<Restaurant | null>(null);
+  const [moving, setMoving] = useState(false);
   useEffect(() => {
     getCurrentLocation().then(setLocation);
   }, []);
@@ -138,6 +142,22 @@ export default function CollectionDetailScreen() {
       setError(String(e));
     } finally {
       setRemoving(false);
+    }
+  }
+
+  async function onMovePick(targetCollectionId: string) {
+    if (!id || !restaurantToMove) return;
+    setMoving(true);
+    setError(null);
+    try {
+      await moveRestaurantToCollection(id, targetCollectionId, restaurantToMove.id);
+      setRestaurantToMove(null);
+      setFeedback(`Moved to another list ✓`);
+      await load();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setMoving(false);
     }
   }
 
@@ -264,6 +284,7 @@ export default function CollectionDetailScreen() {
       ) : (
         <View style={styles.listNameRow}>
           <Text style={styles.listName}>
+            {collection?.is_general ? "⚡ " : ""}
             {capitalizeFirst(collection?.name ?? "List")}
           </Text>
           <Pressable
@@ -294,6 +315,15 @@ export default function CollectionDetailScreen() {
         </Text>
       ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <MoveToListSheet
+        visible={!!restaurantToMove}
+        restaurantName={restaurantToMove?.name ?? ""}
+        excludeCollectionId={id ?? ""}
+        moving={moving}
+        onPick={onMovePick}
+        onClose={() => setRestaurantToMove(null)}
+      />
 
       <RestaurantSheet
         restaurant={selectedRestaurant}
@@ -337,6 +367,14 @@ export default function CollectionDetailScreen() {
                         accessibilityLabel={`Remove ${item.name} from this list`}
                       >
                         <Text style={styles.cardRemove}>Remove</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setRestaurantToMove(item)}
+                        hitSlop={12}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Move ${item.name} to another list`}
+                      >
+                        <Text style={styles.cardShare}>Move</Text>
                       </Pressable>
                       <Pressable
                         onPress={() => onShareRestaurant(item)}

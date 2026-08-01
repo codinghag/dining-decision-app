@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { listCollections, saveRestaurantToCollection, type Collection } from "../lib/db";
+import {
+  getOrCreateGeneralCollection,
+  listCollections,
+  saveRestaurantToCollection,
+  type Collection,
+} from "../lib/db";
 import { getPlaceDetails, resolveMapsLink, searchPlaces, type Place, type PlaceSearchResult } from "../lib/places";
 import { matchSocialLink, resolveSocialPost } from "../lib/socialImport";
 import { getCurrentLocation, type Coords } from "../lib/location";
@@ -42,6 +47,10 @@ export default function ShareTargetScreen() {
   const shared = typeof sharedText === "string" ? sharedText : "";
   const social = matchSocialLink(shared);
   const looksLikeMapsLink = /https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[^\s/]+\/maps)/i.test(shared);
+  // Any other shared URL (e.g. a restaurant's own website): scrape its
+  // og:title the same way we do for Instagram/TikTok captions, below.
+  const genericLink =
+    !social && !looksLikeMapsLink ? shared.match(/https?:\/\/\S+/)?.[0] ?? null : null;
 
   useEffect(() => {
     getCurrentLocation().then(setLocation);
@@ -70,17 +79,19 @@ export default function ShareTargetScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [looksLikeMapsLink]);
 
-  // Instagram/TikTok links: fetch the post's caption server-side and search
+  // Instagram/TikTok links, or any other shared URL (e.g. a restaurant's own
+  // website): fetch the page/post's title or caption server-side and search
   // Places with it automatically, so saving is one tap on a match instead of
   // typing the restaurant's name from memory. Best effort — any failure just
   // leaves the manual search flow.
   useEffect(() => {
-    if (!social) return;
+    const url = social?.url ?? genericLink;
+    if (!url) return;
     let cancelled = false;
     (async () => {
       setSuggesting(true);
       try {
-        const info = await resolveSocialPost(social.url);
+        const info = await resolveSocialPost(url);
         if (cancelled || !info.suggestedQuery) return;
         setQuery(info.suggestedQuery);
         const loc = await getCurrentLocation();
@@ -99,6 +110,18 @@ export default function ShareTargetScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function onQuickSaveGeneral() {
+    setBusy(true);
+    setError(null);
+    try {
+      const general = await getOrCreateGeneralCollection();
+      setCollectionId(general.id);
+    } catch (e) {
+      setError(String(e));
+      setBusy(false);
+    }
+  }
 
   async function onSearch() {
     if (!query.trim()) return;
@@ -180,14 +203,22 @@ export default function ShareTargetScreen() {
       {busy ? <ActivityIndicator style={{ marginVertical: 8 }} color={colors.primary} /> : null}
 
       {collections.length === 0 ? (
-        <>
-          <EmptyState message="You don't have a list yet. Create one first, then share this post again." />
-          <Button label="Go to your lists" onPress={() => router.replace("/")} />
-        </>
+        <View style={styles.section}>
+          <EmptyState message="You don't have a list yet. Save this to General for now, then sort it into a list later." />
+          <Button label="Quick save to General" loading={busy} onPress={onQuickSaveGeneral} />
+        </View>
       ) : !collectionId ? (
         <View style={styles.section}>
           <Text style={styles.stepLabel}>Save to which list?</Text>
-          {collections.map((c) => (
+          <Pressable
+            style={styles.collectionRow}
+            onPress={onQuickSaveGeneral}
+            accessibilityRole="button"
+            accessibilityLabel="Quick save to General, sort into a list later"
+          >
+            <Text style={styles.collectionName}>⚡ General (sort later)</Text>
+          </Pressable>
+          {collections.filter((c) => !c.is_general).map((c) => (
             <Pressable
               key={c.id}
               style={styles.collectionRow}
