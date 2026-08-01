@@ -44,7 +44,11 @@ export default function ShareTargetScreen() {
   const [suggesting, setSuggesting] = useState(false);
   const [suggested, setSuggested] = useState(false);
 
-  const shared = typeof sharedText === "string" ? sharedText : "";
+  // Some apps only populate the share's title/subject, not its text body —
+  // fall back to that so a link/caption there still gets parsed.
+  const rawText = typeof sharedText === "string" ? sharedText.trim() : "";
+  const rawTitle = typeof title === "string" ? title.trim() : "";
+  const shared = rawText || rawTitle;
   const social = matchSocialLink(shared);
   const looksLikeMapsLink = /https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|(?:www\.)?google\.[^\s/]+\/maps)/i.test(shared);
   // Any other shared URL (e.g. a restaurant's own website): scrape its
@@ -164,8 +168,13 @@ export default function ShareTargetScreen() {
     if (currentSocial) {
       return `${currentSocial.platform === "instagram" ? "Instagram" : "TikTok"} post`;
     }
-    const host = (genericLink ?? shared).match(/^https?:\/\/(?:www\.)?([^/\s]+)/i)?.[1];
-    return host ?? "Shared restaurant";
+    const host = (genericLink ?? "").match(/^https?:\/\/(?:www\.)?([^/\s]+)/i)?.[1];
+    if (host) return host;
+    // No link at all — whatever raw text Instagram/the OS handed over is
+    // still more useful than a generic placeholder (often the caption).
+    const trimmedShared = shared.trim();
+    if (trimmedShared) return trimmedShared.slice(0, 60);
+    return "Shared restaurant";
   }
 
   // Caption/og-tag scraping is best effort and doesn't always turn up a
@@ -248,6 +257,15 @@ export default function ShareTargetScreen() {
             </Text>
           </Card>
         </Pressable>
+      ) : null}
+
+      {!social && !shared ? (
+        <Text style={styles.debugHint}>
+          No text or link came through with this share (title: "{title || "none"}
+          "). If this keeps happening on video/Reel shares, that's likely the
+          Android share sheet not attaching a caption — try "Copy Link" on the
+          post instead and paste it into "Paste Link" in a list's Add screen.
+        </Text>
       ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -363,6 +381,7 @@ const themed = themedStyles((colors, type) => ({
     backgroundColor: colors.background,
   },
   sourceCard: { gap: 2 },
+  debugHint: { ...type.caption, color: colors.inkTertiary },
   sourceBadge: { ...type.label, color: colors.primary },
   sourceUrl: { ...type.caption },
   section: { gap: spacing.md },
