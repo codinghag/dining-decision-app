@@ -51,6 +51,7 @@ export default function AddRestaurantScreen() {
   const [socialLink, setSocialLink] = useState<SocialLink | null>(null);
   const [socialQuery, setSocialQuery] = useState("");
   const [socialResults, setSocialResults] = useState<PlaceSearchResult[]>([]);
+  const [socialImageUrl, setSocialImageUrl] = useState<string | null>(null);
   // Set when a pasted website's og:title scrape can't be confidently matched
   // to a real Places result — a best-effort name to save as-is rather than a
   // dead end (fixable later via "Find & fill details" on the saved row).
@@ -109,6 +110,7 @@ export default function AddRestaurantScreen() {
     setResolved(null);
     setSocialLink(null);
     setSocialResults([]);
+    setSocialImageUrl(null);
     setUnresolvedGuess(null);
 
     // Instagram/TikTok post? Read its caption server-side and auto-suggest
@@ -120,6 +122,7 @@ export default function AddRestaurantScreen() {
       setBusy(true);
       try {
         const info = await resolveSocialPost(social.url);
+        setSocialImageUrl(info.imageUrl);
         if (info.suggestedQuery) {
           setSocialQuery(info.suggestedQuery);
           setSocialResults(
@@ -186,6 +189,7 @@ export default function AddRestaurantScreen() {
       await saveRestaurantToCollection(collectionId, { name, address: null }, "quick_add", {
         source_url: socialLink.url,
         source_platform: socialLink.platform,
+        source_image_url: socialImageUrl,
       });
       done();
     } catch (e) {
@@ -217,6 +221,7 @@ export default function AddRestaurantScreen() {
       await saveRestaurantToCollection(collectionId, place, "social_import", {
         source_url: socialLink.url,
         source_platform: socialLink.platform,
+        source_image_url: socialImageUrl,
       });
       done();
     } catch (e) {
@@ -370,6 +375,9 @@ export default function AddRestaurantScreen() {
 
           {socialLink && (
             <Card style={styles.importRow}>
+              {socialImageUrl ? (
+                <RestaurantPhoto photoName={null} fallbackUri={socialImageUrl} variant="hero" />
+              ) : null}
               <Pressable
                 onPress={() => Linking.openURL(socialLink.url).catch(() => {})}
                 accessibilityRole="link"

@@ -31,6 +31,7 @@ export interface Restaurant {
   reservable: boolean | null;
   source_url: string | null;
   source_platform: "instagram" | "tiktok" | null;
+  source_image_url: string | null;
   created_by: string | null;
   created_at: string;
 }
@@ -235,6 +236,7 @@ export type CaptureMethod = "link" | "search" | "quick_add" | "social_import";
 export interface SocialSource {
   source_url: string;
   source_platform: "instagram" | "tiktok";
+  source_image_url?: string | null;
 }
 
 // Ensure a restaurants row exists for this place (dedupe on google_place_id
@@ -280,6 +282,7 @@ export async function ensureRestaurant(
       reservable: place.reservable ?? null,
       source_url: social?.source_url ?? null,
       source_platform: social?.source_platform ?? null,
+      source_image_url: social?.source_image_url ?? null,
       created_by: userId,
     })
     .select("*")

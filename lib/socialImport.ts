@@ -52,6 +52,9 @@ export function matchSocialLink(text: string): SocialLink | null {
 export interface SocialPostInfo {
   caption: string | null;
   suggestedQuery: string | null;
+  // Best-effort post thumbnail (og:image / TikTok oEmbed thumbnail). Signed
+  // CDN URLs that can expire — a visual fallback, not a permanent copy.
+  imageUrl: string | null;
 }
 
 export async function resolveSocialPost(url: string): Promise<SocialPostInfo> {

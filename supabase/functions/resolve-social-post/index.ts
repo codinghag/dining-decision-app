@@ -108,6 +108,22 @@ function instagramEmbedUrl(url: string): string | null {
   return `https://www.instagram.com/${m[1]}/${m[2]}/embed/captioned/`;
 }
 
+// Best-effort thumbnail from the embed markup — the JSON blob's display_url
+// when present, else the first rendered <img>.
+function imageFromInstagramEmbed(html: string): string | null {
+  const j = html.match(/"display_url"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  if (j) {
+    try {
+      const s = JSON.parse(`"${j[1]}"`).trim();
+      if (s) return s;
+    } catch (_e) {
+      // fall through to the markup path
+    }
+  }
+  const img = html.match(/<img[^>]+src="([^"]+)"/i);
+  return img ? decodeEntities(img[1]) : null;
+}
+
 function captionFromInstagramEmbed(html: string): string | null {
   // Preferred: the JSON blob's "caption":"..." (JSON-unescape it).
   const j = html.match(/"caption"\s*:\s*"((?:\\.|[^"\\])*)"/);
@@ -146,6 +162,7 @@ Deno.serve(async (req) => {
 
     let title: string | null = null;
     let description: string | null = null;
+    let imageUrl: string | null = null;
 
     if (/tiktok\.com/i.test(url)) {
       try {
@@ -155,12 +172,16 @@ Deno.serve(async (req) => {
         if (res.ok) {
           const data = await res.json();
           if (typeof data.title === "string") title = data.title;
+          if (typeof data.thumbnail_url === "string") imageUrl = data.thumbnail_url;
         }
       } catch (_e) {
         // fall through to the og-tag scrape below
       }
     }
 
+    // Only kept if the page turns out not to be a junk/login-wall page below
+    // — a login page's og:image is its logo, not the post.
+    let pageImageUrl: string | null = null;
     if (!title) {
       try {
         const res = await fetch(url, {
@@ -171,6 +192,7 @@ Deno.serve(async (req) => {
         title = metaContent(html, "og:title") ?? metaContent(html, "twitter:title");
         description = metaContent(html, "og:description") ??
           metaContent(html, "description");
+        pageImageUrl = metaContent(html, "og:image") ?? metaContent(html, "twitter:image");
       } catch (_e) {
         // best effort — return nulls, the app falls back to manual search
       }
@@ -179,6 +201,7 @@ Deno.serve(async (req) => {
     title = meaningful(title);
     description = meaningful(description);
     let caption = meaningful(captionFrom(description) ?? captionFrom(title));
+    if (!imageUrl && pageImageUrl && (title || description)) imageUrl = pageImageUrl;
 
     // Instagram from a data-center IP: og tags were a login wall — go to the
     // embed endpoint instead.
@@ -192,6 +215,7 @@ Deno.serve(async (req) => {
           });
           const html = (await res.text()).slice(0, MAX_HTML_BYTES);
           caption = meaningful(captionFromInstagramEmbed(html));
+          if (!imageUrl) imageUrl = imageFromInstagramEmbed(html);
         } catch (_e) {
           // best effort — return whatever we have
         }
@@ -199,7 +223,7 @@ Deno.serve(async (req) => {
     }
 
     const suggestedQuery = buildSuggestedQuery([caption, title, description]);
-    return jsonResponse({ caption, suggestedQuery });
+    return jsonResponse({ caption, suggestedQuery, imageUrl });
   } catch (err) {
     console.error("[resolve-social-post] unexpected error:", err);
     return jsonResponse({ error: "Internal error" }, 500);

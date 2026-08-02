@@ -4,6 +4,11 @@ import { radius, themedStyles, useTheme } from "../lib/theme";
 
 interface RestaurantPhotoProps {
   photoName: string | null;
+  // Best-effort fallback when there's no Google Places photo yet — a
+  // scraped Instagram/TikTok post thumbnail (source_image_url). These are
+  // signed CDN URLs that can expire, unlike the Places photo proxy, so
+  // they're only ever a fallback, never preferred over a real match.
+  fallbackUri?: string | null;
   variant?: "thumb" | "hero";
 }
 
@@ -11,10 +16,10 @@ interface RestaurantPhotoProps {
 // thumbnail or a wide hero. Renders nothing when there's no photo, so cards
 // gracefully fall back to text-only. Decorative — the restaurant name is
 // always adjacent text, so screen readers skip the image itself.
-export function RestaurantPhoto({ photoName, variant = "thumb" }: RestaurantPhotoProps) {
+export function RestaurantPhoto({ photoName, fallbackUri, variant = "thumb" }: RestaurantPhotoProps) {
   const { scheme } = useTheme();
   const styles = themed[scheme];
-  const uri = photoUrl(photoName, variant === "hero" ? 800 : 200);
+  const uri = photoUrl(photoName, variant === "hero" ? 800 : 200) ?? fallbackUri ?? null;
   if (!uri) return null;
   return (
     <Image

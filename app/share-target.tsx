@@ -15,6 +15,7 @@ import { TextField } from "../components/TextField";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { RestaurantTags } from "../components/RestaurantTags";
+import { RestaurantPhoto } from "../components/RestaurantPhoto";
 import { EmptyState } from "../components/EmptyState";
 import { radius, spacing, themedStyles, useTheme } from "../lib/theme";
 
@@ -43,6 +44,7 @@ export default function ShareTargetScreen() {
   // the UI can say "Is it one of these?" instead of asking for a search.
   const [suggesting, setSuggesting] = useState(false);
   const [suggested, setSuggested] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   // Some apps only populate the share's title/subject, not its text body —
   // fall back to that so a link/caption there still gets parsed.
@@ -96,7 +98,9 @@ export default function ShareTargetScreen() {
       setSuggesting(true);
       try {
         const info = await resolveSocialPost(url);
-        if (cancelled || !info.suggestedQuery) return;
+        if (cancelled) return;
+        setImageUrl(info.imageUrl);
+        if (!info.suggestedQuery) return;
         setQuery(info.suggestedQuery);
         const loc = await getCurrentLocation();
         const found = await searchPlaces(info.suggestedQuery, loc ?? undefined);
@@ -196,7 +200,9 @@ export default function ShareTargetScreen() {
         collectionId,
         place,
         "quick_add",
-        social ? { source_url: social.url, source_platform: social.platform } : undefined,
+        social
+          ? { source_url: social.url, source_platform: social.platform, source_image_url: imageUrl }
+          : undefined,
       );
       router.replace(`/collection/${collectionId}`);
     } catch (e) {
@@ -214,7 +220,9 @@ export default function ShareTargetScreen() {
         collectionId,
         place,
         "social_import",
-        social ? { source_url: social.url, source_platform: social.platform } : undefined,
+        social
+          ? { source_url: social.url, source_platform: social.platform, source_image_url: imageUrl }
+          : undefined,
       );
       router.replace(`/collection/${collectionId}`);
     } catch (e) {
@@ -246,6 +254,9 @@ export default function ShareTargetScreen() {
           accessibilityLabel="Open the original post or link"
         >
           <Card style={styles.sourceCard}>
+            {imageUrl ? (
+              <RestaurantPhoto photoName={null} fallbackUri={imageUrl} variant="hero" />
+            ) : null}
             <Text style={styles.sourceBadge}>
               {social
                 ? `${social.platform === "instagram" ? "Instagram" : "TikTok"} post`

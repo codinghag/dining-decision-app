@@ -222,8 +222,12 @@ export function RestaurantSheet({
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
           >
-            {r.photo_name ? (
-              <RestaurantPhoto photoName={r.photo_name} variant="hero" />
+            {r.photo_name || r.source_image_url ? (
+              <RestaurantPhoto
+                photoName={r.photo_name}
+                fallbackUri={r.source_image_url}
+                variant="hero"
+              />
             ) : null}
             <Text style={styles.name} accessibilityRole="header">
               {r.name}

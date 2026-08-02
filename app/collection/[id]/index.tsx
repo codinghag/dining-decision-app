@@ -353,8 +353,12 @@ export default function CollectionDetailScreen() {
             >
               <Card elevated>
                 <View style={styles.cardRow}>
-                {item.photo_name ? (
-                  <RestaurantPhoto photoName={item.photo_name} variant="thumb" />
+                {item.photo_name || item.source_image_url ? (
+                  <RestaurantPhoto
+                    photoName={item.photo_name}
+                    fallbackUri={item.source_image_url}
+                    variant="thumb"
+                  />
                 ) : null}
                 <View style={styles.cardBody}>
                   <View style={styles.cardHeader}>
