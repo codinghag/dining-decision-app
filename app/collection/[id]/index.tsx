@@ -19,6 +19,7 @@ import {
   type Restaurant,
 } from "../../../lib/db";
 import { MoveToListSheet } from "../../../components/MoveToListSheet";
+import { ProposeTimesSheet } from "../../../components/ProposeTimesSheet";
 import { RestaurantSheet } from "../../../components/RestaurantSheet";
 import { ShareRestaurantSheet } from "../../../components/ShareRestaurantSheet";
 import { startDecideSession } from "../../../lib/decide";
@@ -65,6 +66,7 @@ export default function CollectionDetailScreen() {
   const [restaurantToMove, setRestaurantToMove] = useState<Restaurant | null>(null);
   const [moving, setMoving] = useState(false);
   const [restaurantToShare, setRestaurantToShare] = useState<Restaurant | null>(null);
+  const [proposingTimes, setProposingTimes] = useState(false);
   useEffect(() => {
     getCurrentLocation().then(setLocation);
   }, []);
@@ -92,7 +94,7 @@ export default function CollectionDetailScreen() {
     }, [load]),
   );
 
-  async function onDecide() {
+  async function onDecide(timeOptions: string[]) {
     if (!id) return;
     setDeciding(true);
     setError(null);
@@ -114,7 +116,8 @@ export default function CollectionDetailScreen() {
           // ignore -- proceed without a wildcard
         }
       }
-      const { session } = await startDecideSession(id, { wildcardRestaurantId });
+      const { session } = await startDecideSession(id, { wildcardRestaurantId, timeOptions });
+      setProposingTimes(false);
       router.push(`/collection/${id}/decide/${session.id}`);
     } catch (e) {
       setError(String(e));
@@ -222,9 +225,8 @@ export default function CollectionDetailScreen() {
           label="Let's Decide"
           variant="dark"
           flex
-          loading={deciding}
           disabled={!hasRestaurants}
-          onPress={onDecide}
+          onPress={() => setProposingTimes(true)}
         />
       </View>
 
@@ -329,6 +331,13 @@ export default function CollectionDetailScreen() {
       <ShareRestaurantSheet
         restaurant={restaurantToShare}
         onClose={() => setRestaurantToShare(null)}
+      />
+
+      <ProposeTimesSheet
+        visible={proposingTimes}
+        starting={deciding}
+        onStart={onDecide}
+        onClose={() => setProposingTimes(false)}
       />
 
       <RestaurantSheet

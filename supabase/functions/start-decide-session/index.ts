@@ -4,13 +4,18 @@
 //   3. otherwise pick a random 3 restaurant ids from the collection (or all if
 //      <= 3) and insert the decide_sessions row (status 'active'), backstopped
 //      by a unique index (see 0004_phase2_fixes.sql) against the concurrent
-//      double-tap race,
+//      double-tap race, then insert the organizer's proposed time slots,
 //   4. best-effort push all OTHER members via Expo ("Time to decide where to eat"),
-//   5. return the session PLUS the chosen restaurants' details, so the client
-//      can render the swipe deck without a second round trip.
+//   5. return the session PLUS the chosen restaurants' and time options'
+//      details, so the client can render the swipe deck without a second
+//      round trip.
 //
-// Request:  POST { "collectionId": string }
-// Response: { "session": DecideSession, "restaurants": Restaurant[] } | { "error": string }
+// Request:  POST { "collectionId": string, "timeOptions": string[] }
+//   timeOptions: 1+ ISO datetime strings the organizer is proposing. Ignored
+//   (not an error) when an existing active session is reused — that
+//   session's own options are returned instead, same as the restaurant
+//   sample already does for a late-arriving caller.
+// Response: { "session": DecideSession, "restaurants": Restaurant[], "timeOptions": TimeOption[] } | { "error": string }
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { admin, callerUserId, isUuid, sendExpoPush } from "../_shared/supabaseAdmin.ts";
 
@@ -23,6 +28,12 @@ interface Restaurant {
   phone: string | null;
   website: string | null;
   hours: unknown | null;
+}
+
+interface TimeOption {
+  id: string;
+  session_id: string;
+  starts_at: string;
 }
 
 // Fisher–Yates shuffle, then take the first n.
@@ -45,9 +56,19 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Not authenticated" }, 401);
     }
 
-    const { collectionId, wildcardRestaurantId } = await req.json();
+    const { collectionId, wildcardRestaurantId, timeOptions } = await req.json();
     if (!isUuid(collectionId)) {
       return jsonResponse({ error: "collectionId (uuid) is required" }, 400);
+    }
+    if (
+      !Array.isArray(timeOptions) ||
+      timeOptions.length === 0 ||
+      timeOptions.some((t) => typeof t !== "string" || Number.isNaN(Date.parse(t)))
+    ) {
+      return jsonResponse(
+        { error: "timeOptions (non-empty string[] of ISO datetimes) is required" },
+        400,
+      );
     }
 
     const db = admin();
@@ -75,11 +96,17 @@ Deno.serve(async (req) => {
     if (existingActive.length > 0) {
       const session = existingActive[0];
       const ids = session.restaurant_ids as string[];
-      const restaurants = await db.select<Restaurant>(
-        "restaurants",
-        `id=in.(${ids.join(",")})&select=${restaurantSelect}`,
-      );
-      return jsonResponse({ session, restaurants });
+      const [restaurants, existingTimeOptions] = await Promise.all([
+        db.select<Restaurant>(
+          "restaurants",
+          `id=in.(${ids.join(",")})&select=${restaurantSelect}`,
+        ),
+        db.select<TimeOption>(
+          "decide_time_options",
+          `session_id=eq.${session.id}&select=id,session_id,starts_at&order=starts_at.asc`,
+        ),
+      ]);
+      return jsonResponse({ session, restaurants, timeOptions: existingTimeOptions });
     }
 
     // 3. Random sample of restaurant ids from the collection.
@@ -110,6 +137,7 @@ Deno.serve(async (req) => {
     // check above and this insert — if another request won that race, fetch
     // and return their session instead of failing.
     let session: Record<string, unknown>;
+    let weCreatedSession = true;
     try {
       [session] = await db.insert<Record<string, unknown>>("decide_sessions", {
         collection_id: collectionId,
@@ -124,6 +152,27 @@ Deno.serve(async (req) => {
       );
       if (raceWinner.length === 0) throw insertErr;
       session = raceWinner[0];
+      weCreatedSession = false;
+    }
+
+    // Time options: if we won the race and actually created this session,
+    // insert our proposed slots. If another request beat us to it, that
+    // session's own options win instead — same "first session wins" rule
+    // already applied to the restaurant sample.
+    let sessionTimeOptions: TimeOption[];
+    if (weCreatedSession) {
+      sessionTimeOptions = await db.insert<TimeOption>(
+        "decide_time_options",
+        (timeOptions as string[]).map((starts_at) => ({
+          session_id: session.id,
+          starts_at,
+        })),
+      );
+    } else {
+      sessionTimeOptions = await db.select<TimeOption>(
+        "decide_time_options",
+        `session_id=eq.${session.id}&select=id,session_id,starts_at&order=starts_at.asc`,
+      );
     }
 
     // Fetch the chosen restaurants' details for the client.
@@ -158,7 +207,7 @@ Deno.serve(async (req) => {
       console.error("[start-decide-session] push send failed (ignored):", pushErr);
     }
 
-    return jsonResponse({ session, restaurants });
+    return jsonResponse({ session, restaurants, timeOptions: sessionTimeOptions });
   } catch (err) {
     // Log the full detail server-side; never relay raw DB/PostgREST error
     // text to the caller (it can include query/schema internals).

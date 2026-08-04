@@ -4,6 +4,9 @@ import type { Restaurant } from "./db";
 
 // A "Decide Now" session: a fixed set of (up to) 3 restaurants the group votes
 // on with a swipe. The vote data underneath is plain binary counts — no ranking.
+// It also carries a fixed set of organizer-proposed time slots, approved the
+// same way (see TimeOption/TimeVote below) — one combined session settles
+// both where and when.
 export interface DecideSession {
   id: string;
   collection_id: string;
@@ -11,6 +14,7 @@ export interface DecideSession {
   status: "active" | "completed";
   restaurant_ids: string[];
   winner_restaurant_id: string | null;
+  winner_time_option_id: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -19,6 +23,24 @@ export interface Vote {
   id: string;
   session_id: string;
   restaurant_id: string;
+  user_id: string;
+  vote: boolean;
+  created_at: string;
+}
+
+// A candidate date/time slot proposed by the session's organizer.
+export interface TimeOption {
+  id: string;
+  session_id: string;
+  starts_at: string;
+}
+
+// Approval per (session, option, user) — a row means approved; there is no
+// "explicitly not interested" row, un-approving just deletes it.
+export interface TimeVote {
+  id: string;
+  session_id: string;
+  option_id: string;
   user_id: string;
   vote: boolean;
   created_at: string;
@@ -49,30 +71,39 @@ export async function joinCollection(
 export interface StartedSession {
   session: DecideSession;
   restaurants: Restaurant[];
+  timeOptions: TimeOption[];
 }
 
 // Start a session (server picks the random 3, notifies other members), then log.
 // An optional wildcardRestaurantId is appended to the deck server-side -- a
 // nearby surprise the client fetched from Google that isn't in the collection.
+// timeOptions is the organizer's proposed date/time slots (1+ ISO strings) --
+// ignored server-side if an active session already exists to join instead.
 export async function startDecideSession(
   collectionId: string,
-  opts?: { wildcardRestaurantId?: string },
+  opts: { wildcardRestaurantId?: string; timeOptions: string[] },
 ): Promise<StartedSession> {
   const result = await invokeEdgeFunction<StartedSession>(
     "start-decide-session",
-    { collectionId, wildcardRestaurantId: opts?.wildcardRestaurantId },
+    {
+      collectionId,
+      wildcardRestaurantId: opts.wildcardRestaurantId,
+      timeOptions: opts.timeOptions,
+    },
   );
   await logEvent("decide_session_started", {
     collection_id: collectionId,
     session_id: result.session.id,
     restaurant_count: result.restaurants.length,
-    wildcard: !!opts?.wildcardRestaurantId,
+    time_option_count: result.timeOptions.length,
+    wildcard: !!opts.wildcardRestaurantId,
   });
   return result;
 }
 
-// Load a session plus the details of its fixed restaurant set. Used when a
-// member opens a session they didn't start (e.g. from a push notification).
+// Load a session plus the details of its fixed restaurant set and time
+// options. Used when a member opens a session they didn't start (e.g. from a
+// push notification).
 export async function getSessionWithRestaurants(
   sessionId: string,
 ): Promise<StartedSession | null> {
@@ -85,11 +116,17 @@ export async function getSessionWithRestaurants(
   if (!session) return null;
 
   const ids = (session as DecideSession).restaurant_ids;
-  const { data: restaurants, error: rErr } = await supabase
-    .from("restaurants")
-    .select("*")
-    .in("id", ids);
+  const [{ data: restaurants, error: rErr }, { data: timeOptions, error: tErr }] =
+    await Promise.all([
+      supabase.from("restaurants").select("*").in("id", ids),
+      supabase
+        .from("decide_time_options")
+        .select("*")
+        .eq("session_id", sessionId)
+        .order("starts_at", { ascending: true }),
+    ]);
   if (rErr) throw rErr;
+  if (tErr) throw tErr;
 
   // Preserve the session's restaurant_ids ordering.
   const byId = new Map(
@@ -99,7 +136,11 @@ export async function getSessionWithRestaurants(
     .map((id) => byId.get(id))
     .filter((r): r is Restaurant => r != null);
 
-  return { session: session as DecideSession, restaurants: ordered };
+  return {
+    session: session as DecideSession,
+    restaurants: ordered,
+    timeOptions: (timeOptions ?? []) as TimeOption[],
+  };
 }
 
 // Cast (or change) a vote on one restaurant. Upsert on the unique
@@ -148,8 +189,62 @@ export function tallyYesVotes(votes: Vote[]): Record<string, number> {
   return counts;
 }
 
-// End the session: server-side RPC computes the winner authoritatively (most
-// "yes" votes, ties broken by restaurant_id). Then log session_completed.
+// Approve or un-approve one time option. Approving upserts a row (like
+// castVote); un-approving deletes it instead of writing vote=false, since
+// there's no "explicitly not interested" state to record for a time slot.
+export async function castTimeVote(
+  sessionId: string,
+  optionId: string,
+  approve: boolean,
+): Promise<void> {
+  const userId = await getUserId();
+  if (!userId) throw new Error("Not signed in");
+  if (approve) {
+    const { error } = await supabase.from("time_votes").upsert(
+      { session_id: sessionId, option_id: optionId, user_id: userId, vote: true },
+      { onConflict: "session_id,option_id,user_id" },
+    );
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from("time_votes")
+      .delete()
+      .eq("session_id", sessionId)
+      .eq("option_id", optionId)
+      .eq("user_id", userId);
+    if (error) throw error;
+  }
+  await logEvent("time_vote_cast", {
+    session_id: sessionId,
+    option_id: optionId,
+    approve,
+  });
+}
+
+// All time-option approvals in a session (RLS scopes this to members). Used
+// to render live per-option tallies; also refreshed on each Realtime event.
+export async function listTimeVotes(sessionId: string): Promise<TimeVote[]> {
+  const { data, error } = await supabase
+    .from("time_votes")
+    .select("*")
+    .eq("session_id", sessionId);
+  if (error) throw error;
+  return (data ?? []) as TimeVote[];
+}
+
+// Count of approvals per option_id -- every row already implies approval.
+export function tallyTimeApprovals(votes: TimeVote[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const v of votes) {
+    counts[v.option_id] = (counts[v.option_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
+// End the session: server-side RPC computes both winners authoritatively --
+// the restaurant with the most "yes" votes (ties broken by restaurant_id),
+// and the time option with the most approvals (ties broken by earliest
+// starts_at). Then log session_completed.
 export async function completeSession(
   sessionId: string,
 ): Promise<DecideSession> {
@@ -163,6 +258,7 @@ export async function completeSession(
   await logEvent("session_completed", {
     session_id: sessionId,
     winner_restaurant_id: session.winner_restaurant_id,
+    winner_time_option_id: session.winner_time_option_id,
   });
   return session;
 }

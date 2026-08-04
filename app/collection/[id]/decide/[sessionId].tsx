@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
+  Pressable,
   Text,
   View,
   useWindowDimensions,
@@ -20,12 +21,17 @@ import { getUserId, supabase } from "../../../../lib/supabase";
 import { getAuthStatus } from "../../../../lib/auth";
 import type { Restaurant } from "../../../../lib/db";
 import {
+  castTimeVote,
   castVote,
   completeSession,
   getSessionWithRestaurants,
+  listTimeVotes,
   listVotes,
+  tallyTimeApprovals,
   tallyYesVotes,
   type DecideSession,
+  type TimeOption,
+  type TimeVote,
   type Vote,
 } from "../../../../lib/decide";
 import { Button } from "../../../../components/Button";
@@ -36,6 +42,7 @@ import { CountdownTimer } from "../../../../components/CountdownTimer";
 import { SignInGate } from "../../../../components/SignInGate";
 import { buildMapsUrl } from "../../../../lib/maps";
 import { isOpenNow } from "../../../../lib/hours";
+import { formatTimeOption } from "../../../../lib/time";
 import { logEvent } from "../../../../lib/analytics";
 import { radius, shadow, spacing, themedStyles, useTheme } from "../../../../lib/theme";
 
@@ -56,6 +63,9 @@ export default function DecideScreen() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [index, setIndex] = useState(0); // which card the local user is on
   const [votes, setVotes] = useState<Vote[]>([]);
+  const [timeOptions, setTimeOptions] = useState<TimeOption[]>([]);
+  const [timeVotes, setTimeVotes] = useState<TimeVote[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
@@ -80,7 +90,10 @@ export default function DecideScreen() {
       }
       setSession(data.session);
       setRestaurants(data.restaurants);
+      setTimeOptions(data.timeOptions);
       setVotes(await listVotes(sessionId));
+      setTimeVotes(await listTimeVotes(sessionId));
+      setUserId(await getUserId());
       setIsAnonymous((await getAuthStatus()).isAnonymous);
     } catch (e) {
       setError(String(e));
@@ -110,6 +123,31 @@ export default function DecideScreen() {
         () => {
           listVotes(sessionId)
             .then(setVotes)
+            .catch((e) => setError(String(e)));
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [sessionId]);
+
+  // Realtime: same as the votes channel above, but for time-slot approvals.
+  useEffect(() => {
+    if (!sessionId) return;
+    const channel = supabase
+      .channel(`time_votes:${sessionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "time_votes",
+          filter: `session_id=eq.${sessionId}`,
+        },
+        () => {
+          listTimeVotes(sessionId)
+            .then(setTimeVotes)
             .catch((e) => setError(String(e)));
         },
       )
@@ -177,6 +215,30 @@ export default function DecideScreen() {
     () => Math.max(1, ...restaurants.map((r) => tallies[r.id] ?? 0)),
     [restaurants, tallies],
   );
+
+  const timeTallies = useMemo(() => tallyTimeApprovals(timeVotes), [timeVotes]);
+  const maxTimeTally = useMemo(
+    () => Math.max(1, ...timeOptions.map((o) => timeTallies[o.id] ?? 0)),
+    [timeOptions, timeTallies],
+  );
+  const myApprovedTimeIds = useMemo(
+    () => new Set(timeVotes.filter((v) => v.user_id === userId).map((v) => v.option_id)),
+    [timeVotes, userId],
+  );
+
+  const [togglingTimeId, setTogglingTimeId] = useState<string | null>(null);
+  async function onToggleTime(optionId: string) {
+    if (!sessionId) return;
+    const approve = !myApprovedTimeIds.has(optionId);
+    setTogglingTimeId(optionId);
+    try {
+      await castTimeVote(sessionId, optionId, approve);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setTogglingTimeId(null);
+    }
+  }
 
   // Spring "pop" on the winner name when the result appears.
   const winnerScale = useSharedValue(0.7);
@@ -333,6 +395,51 @@ export default function DecideScreen() {
     });
   }
 
+  function renderTimeTallies() {
+    return timeOptions.map((o) => {
+      const count = timeTallies[o.id] ?? 0;
+      const pct = Math.round((count / maxTimeTally) * 100);
+      return (
+        <View key={o.id} style={styles.tallyRow}>
+          <View style={styles.tallyHeader}>
+            <Text style={styles.tallyName}>{formatTimeOption(o.starts_at)}</Text>
+            <Text style={styles.tallyCount}>{count} approved</Text>
+          </View>
+          <View style={styles.tallyTrack}>
+            <View style={[styles.tallyFill, { width: `${pct}%` }]} />
+          </View>
+        </View>
+      );
+    });
+  }
+
+  function renderTimeChips() {
+    return (
+      <View style={styles.timeChips}>
+        {timeOptions.map((o) => {
+          const on = myApprovedTimeIds.has(o.id);
+          const busy = togglingTimeId === o.id;
+          return (
+            <Pressable
+              key={o.id}
+              style={[styles.timeChip, on && styles.timeChipOn]}
+              onPress={() => onToggleTime(o.id)}
+              disabled={busy}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: on, disabled: busy }}
+              accessibilityLabel={`Approve ${formatTimeOption(o.starts_at)}`}
+            >
+              <Text style={[styles.timeChipText, on && styles.timeChipTextOn]}>
+                {on ? "✓ " : ""}
+                {formatTimeOption(o.starts_at)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -345,6 +452,9 @@ export default function DecideScreen() {
   const completed = session?.status === "completed";
   const winner = completed
     ? restaurants.find((r) => r.id === session?.winner_restaurant_id) ?? null
+    : null;
+  const winnerTime = completed
+    ? timeOptions.find((o) => o.id === session?.winner_time_option_id) ?? null
     : null;
   const current = restaurants[index];
   const doneVoting = index >= restaurants.length;
@@ -391,6 +501,11 @@ export default function DecideScreen() {
           {winner?.address ? (
             <Text style={styles.resultSub}>{winner.address}</Text>
           ) : null}
+          {winnerTime ? (
+            <Text style={styles.resultTime}>
+              🕑 {formatTimeOption(winnerTime.starts_at)}
+            </Text>
+          ) : null}
           {winner?.reservable ? (
             <Button
               label="🗓️ Reserve a table"
@@ -415,6 +530,9 @@ export default function DecideScreen() {
             />
           ) : null}
           <View style={styles.tallies}>{renderTallies()}</View>
+          {timeOptions.length > 0 ? (
+            <View style={styles.tallies}>{renderTimeTallies()}</View>
+          ) : null}
           {isAnonymous ? (
             <View style={styles.savePrompt}>
               <Text style={styles.savePromptTitle}>Keep this group</Text>
@@ -444,6 +562,13 @@ export default function DecideScreen() {
             running={session?.status === "active"}
             onExpire={onTimerExpire}
           />
+
+          {timeOptions.length > 0 ? (
+            <View style={styles.timeSection}>
+              <Text style={styles.timeSectionTitle}>When works for you?</Text>
+              {renderTimeChips()}
+            </View>
+          ) : null}
 
           <View style={styles.deck}>
             {doneVoting ? (
@@ -512,6 +637,13 @@ export default function DecideScreen() {
             {renderTallies()}
           </View>
 
+          {timeOptions.length > 0 ? (
+            <View style={styles.tallies}>
+              <Text style={styles.talliesTitle}>Time approvals</Text>
+              {renderTimeTallies()}
+            </View>
+          ) : null}
+
           <Button
             label={finishing ? "Finishing…" : "Finish & see result"}
             variant="dark"
@@ -527,6 +659,20 @@ export default function DecideScreen() {
 const themed = themedStyles((colors, type) => ({
   container: { flex: 1, backgroundColor: colors.background, padding: spacing.base, gap: spacing.base },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  timeSection: { gap: spacing.xs },
+  timeSectionTitle: { ...type.label },
+  timeChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  timeChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  timeChipOn: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+  timeChipText: { ...type.label, color: colors.inkSecondary },
+  timeChipTextOn: { color: colors.primaryDark },
+  resultTime: { ...type.body, color: colors.inkSecondary, textAlign: "center" },
   deck: { minHeight: 340, alignItems: "center", justifyContent: "center" },
   card: {
     width: "100%",
