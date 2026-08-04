@@ -119,6 +119,24 @@ export async function inviteFriendsToCollection(
   return data.invited;
 }
 
+// In-app share of a single restaurant: adds it to each friend's own General
+// list server-side and pushes them a notification — the restaurant-level
+// counterpart to inviteFriendsToCollection.
+export async function shareRestaurantWithFriends(
+  restaurantId: string,
+  friendIds: string[],
+): Promise<number> {
+  const data = await invokeEdgeFunction<{ shared: number }>(
+    "share-restaurant",
+    { restaurantId, friendIds },
+  );
+  await logEvent("restaurant_shared_in_app", {
+    restaurant_id: restaurantId,
+    count: data.shared,
+  });
+  return data.shared;
+}
+
 // Pick one contact via the OS contact picker and return a phone number to
 // text an invite to. Uses the system picker intent, so no contacts
 // permission prompt is involved. Native only; null = cancelled or the

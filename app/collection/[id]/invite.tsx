@@ -117,10 +117,10 @@ export default function InviteScreen() {
 
   return (
     <ScreenContainer>
-      <Stack.Screen options={{ title: "Invite" }} />
+      <Stack.Screen options={{ title: "Share" }} />
 
       <Text style={styles.heading}>
-        {name ? `Invite people to "${name}"` : "Invite people"}
+        {name ? `Share "${name}"` : "Share this list"}
       </Text>
 
       {feedback ? (

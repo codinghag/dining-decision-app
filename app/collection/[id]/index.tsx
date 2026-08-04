@@ -18,9 +18,9 @@ import {
   type Collection,
   type Restaurant,
 } from "../../../lib/db";
-import { shareRestaurant } from "../../../lib/invite";
 import { MoveToListSheet } from "../../../components/MoveToListSheet";
 import { RestaurantSheet } from "../../../components/RestaurantSheet";
+import { ShareRestaurantSheet } from "../../../components/ShareRestaurantSheet";
 import { startDecideSession } from "../../../lib/decide";
 import { getCurrentLocation, type Coords } from "../../../lib/location";
 import { pickWildcardPlace } from "../../../lib/wildcard";
@@ -64,6 +64,7 @@ export default function CollectionDetailScreen() {
   const [deletingList, setDeletingList] = useState(false);
   const [restaurantToMove, setRestaurantToMove] = useState<Restaurant | null>(null);
   const [moving, setMoving] = useState(false);
+  const [restaurantToShare, setRestaurantToShare] = useState<Restaurant | null>(null);
   useEffect(() => {
     getCurrentLocation().then(setLocation);
   }, []);
@@ -90,14 +91,6 @@ export default function CollectionDetailScreen() {
       load();
     }, [load]),
   );
-
-  // Share a single restaurant (name + address + a Maps link) — clipboard
-  // fallback (web without the Web Share API) is invisible, so say so.
-  async function onShareRestaurant(r: Restaurant) {
-    setFeedback(null);
-    const outcome = await shareRestaurant(r);
-    if (outcome === "copied") setFeedback("Copied to clipboard ✓");
-  }
 
   async function onDecide() {
     if (!id) return;
@@ -299,6 +292,14 @@ export default function CollectionDetailScreen() {
             <Text style={styles.listNameAction}>Rename</Text>
           </Pressable>
           <Pressable
+            onPress={() => router.push(`/collection/${id}/invite`)}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Share this list"
+          >
+            <Text style={styles.listNameAction}>Share</Text>
+          </Pressable>
+          <Pressable
             onPress={() => setConfirmingDeleteList(true)}
             hitSlop={12}
             accessibilityRole="button"
@@ -323,6 +324,11 @@ export default function CollectionDetailScreen() {
         moving={moving}
         onPick={onMovePick}
         onClose={() => setRestaurantToMove(null)}
+      />
+
+      <ShareRestaurantSheet
+        restaurant={restaurantToShare}
+        onClose={() => setRestaurantToShare(null)}
       />
 
       <RestaurantSheet
@@ -381,7 +387,7 @@ export default function CollectionDetailScreen() {
                         <Text style={styles.cardShare}>Move</Text>
                       </Pressable>
                       <Pressable
-                        onPress={() => onShareRestaurant(item)}
+                        onPress={() => setRestaurantToShare(item)}
                         hitSlop={12}
                         accessibilityRole="button"
                         accessibilityLabel={`Share ${item.name}`}

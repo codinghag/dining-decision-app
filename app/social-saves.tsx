@@ -3,12 +3,14 @@ import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native
 import { Stack, useFocusEffect } from "expo-router";
 import {
   listSocialSaves,
+  moveRestaurantToCollection,
   removeRestaurantFromCollection,
   type Restaurant,
   type SocialSave,
 } from "../lib/db";
-import { shareRestaurant } from "../lib/invite";
+import { MoveToListSheet } from "../components/MoveToListSheet";
 import { RestaurantSheet } from "../components/RestaurantSheet";
+import { ShareRestaurantSheet } from "../components/ShareRestaurantSheet";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { Card } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
@@ -28,6 +30,9 @@ export default function SocialSavesScreen() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [toRemove, setToRemove] = useState<SocialSave | null>(null);
   const [selected, setSelected] = useState<SocialSave | null>(null);
+  const [toMove, setToMove] = useState<SocialSave | null>(null);
+  const [moving, setMoving] = useState(false);
+  const [toShare, setToShare] = useState<SocialSave | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -44,12 +49,6 @@ export default function SocialSavesScreen() {
     }, [load]),
   );
 
-  async function onShare(item: SocialSave) {
-    setFeedback(null);
-    const outcome = await shareRestaurant(item);
-    if (outcome === "copied") setFeedback("Copied to clipboard ✓");
-  }
-
   async function onConfirmRemove() {
     if (!toRemove) return;
     try {
@@ -58,6 +57,22 @@ export default function SocialSavesScreen() {
       await load();
     } catch (e) {
       setError(String(e));
+    }
+  }
+
+  async function onMovePick(targetCollectionId: string) {
+    if (!toMove) return;
+    setMoving(true);
+    setError(null);
+    try {
+      await moveRestaurantToCollection(toMove.collectionId, targetCollectionId, toMove.id);
+      setToMove(null);
+      setFeedback("Moved to another list ✓");
+      await load();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setMoving(false);
     }
   }
 
@@ -77,6 +92,20 @@ export default function SocialSavesScreen() {
         collectionId={selected?.collectionId}
         onChanged={() => load()}
         onClose={() => setSelected(null)}
+      />
+
+      <MoveToListSheet
+        visible={!!toMove}
+        restaurantName={toMove?.name ?? ""}
+        excludeCollectionId={toMove?.collectionId ?? ""}
+        moving={moving}
+        onPick={onMovePick}
+        onClose={() => setToMove(null)}
+      />
+
+      <ShareRestaurantSheet
+        restaurant={toShare as Restaurant | null}
+        onClose={() => setToShare(null)}
       />
 
       {toRemove ? (
@@ -133,7 +162,15 @@ export default function SocialSavesScreen() {
                           <Text style={styles.remove}>Remove</Text>
                         </Pressable>
                         <Pressable
-                          onPress={() => onShare(item)}
+                          onPress={() => setToMove(item)}
+                          hitSlop={12}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Move ${item.name} to another list`}
+                        >
+                          <Text style={styles.share}>Move</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setToShare(item)}
                           hitSlop={12}
                           accessibilityRole="button"
                           accessibilityLabel={`Share ${item.name}`}

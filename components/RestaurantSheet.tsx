@@ -23,7 +23,6 @@ import {
 } from "../lib/places";
 import { matchSocialLink, resolveSocialPost } from "../lib/socialImport";
 import { getCurrentLocation } from "../lib/location";
-import { shareRestaurant } from "../lib/invite";
 import { buildMapsUrl } from "../lib/maps";
 import { isOpenNow } from "../lib/hours";
 import { logEvent } from "../lib/analytics";
@@ -31,6 +30,7 @@ import { Button } from "./Button";
 import { TextField } from "./TextField";
 import { RestaurantPhoto } from "./RestaurantPhoto";
 import { RestaurantTags } from "./RestaurantTags";
+import { ShareRestaurantSheet } from "./ShareRestaurantSheet";
 import { radius, shadow, spacing, themedStyles, useTheme } from "../lib/theme";
 
 interface RestaurantSheetProps {
@@ -64,6 +64,7 @@ export function RestaurantSheet({
   const [fixQuery, setFixQuery] = useState("");
   const [fixResults, setFixResults] = useState<PlaceSearchResult[]>([]);
   const [fixBusy, setFixBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // The sheet stays mounted across different restaurants — reset per spot.
   useEffect(() => {
@@ -72,18 +73,13 @@ export function RestaurantSheet({
     setFixOpen(false);
     setFixQuery("");
     setFixResults([]);
+    setShareOpen(false);
   }, [restaurant?.id]);
 
   if (!restaurant) return null;
   const r = restaurant;
   const needsDetails = !r.google_place_id;
   const nameIsUrl = /^https?:\/\//i.test(r.name.trim());
-
-  async function onShare() {
-    setFeedback(null);
-    const outcome = await shareRestaurant(r);
-    if (outcome === "copied") setFeedback("Copied to clipboard ✓");
-  }
 
   function onDirections() {
     logEvent("directions_opened", { restaurant_id: r.id });
@@ -339,12 +335,16 @@ export function RestaurantSheet({
             ) : null}
             <View style={styles.actions}>
               <Button label="Get directions" flex onPress={onDirections} />
-              <Button label="Share" variant="outline" flex onPress={onShare} />
+              <Button label="Share" variant="outline" flex onPress={() => setShareOpen(true)} />
             </View>
             <Button label="Close" variant="dark" onPress={onClose} />
           </ScrollView>
         </Pressable>
       </Pressable>
+      <ShareRestaurantSheet
+        restaurant={shareOpen ? r : null}
+        onClose={() => setShareOpen(false)}
+      />
     </Modal>
   );
 }
