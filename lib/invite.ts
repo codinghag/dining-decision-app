@@ -94,6 +94,24 @@ export async function textAppInvite(phone: string, name?: string | null): Promis
   await logEvent("app_invite_sent", { outcome: "sms" });
 }
 
+// Share a completed decide session's result -- what the group picked (and,
+// if a time won too, when) -- with the collection's join link so recipients
+// can see or join the list too, not just read a text.
+export async function shareDecideResult(
+  collectionId: string,
+  restaurantName: string,
+  timeLabel?: string | null,
+): Promise<ShareOutcome> {
+  const url = collectionInviteUrl(collectionId);
+  const when = timeLabel ? ` at ${timeLabel}` : "";
+  const message = `We decided on ${restaurantName}${when}! 🎉 Planned with Forked: ${url}`;
+  const outcome = await shareMessage(message, url);
+  if (outcome !== "dismissed") {
+    await logEvent("decide_result_shared", { collection_id: collectionId, outcome });
+  }
+  return outcome;
+}
+
 // Share a single restaurant (name + address + a Google Maps link that works
 // for anyone, app or not).
 export async function shareRestaurant(r: Restaurant): Promise<ShareOutcome> {

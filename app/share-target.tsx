@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import {
-  getOrCreateGeneralCollection,
-  listCollections,
-  saveRestaurantToCollection,
-  type Collection,
-} from "../lib/db";
+import { getOrCreateGeneralCollection, saveRestaurantToCollection } from "../lib/db";
 import { getPlaceDetails, resolveMapsLink, searchPlaces, type Place, type PlaceSearchResult } from "../lib/places";
 import { matchSocialLink, resolveSocialPost } from "../lib/socialImport";
 import { getCurrentLocation, type Coords } from "../lib/location";
@@ -16,13 +11,15 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { RestaurantTags } from "../components/RestaurantTags";
 import { RestaurantPhoto } from "../components/RestaurantPhoto";
-import { EmptyState } from "../components/EmptyState";
-import { radius, spacing, themedStyles, useTheme } from "../lib/theme";
+import { spacing, themedStyles, useTheme } from "../lib/theme";
 
 // Landing screen for the Android share-sheet target (expo-share-intent):
 // share an Instagram/TikTok post — or any text/link — from another app to
-// Forked and it arrives here. Flow: pick a collection, match the post to a
-// real restaurant via search, save with the post kept as the source.
+// Forked and it arrives here. Flow: save straight to General (no "which
+// list?" prompt — that's the lowest-effort moment in the whole app, so we
+// don't spend it on a decision; move it to another list later via the
+// existing per-row Move action), match the post to a real restaurant via
+// search, save with the post kept as the source.
 export default function ShareTargetScreen() {
   const { text: sharedText, title } = useLocalSearchParams<{
     text?: string;
@@ -32,7 +29,6 @@ export default function ShareTargetScreen() {
   const { scheme, colors } = useTheme();
   const styles = themed[scheme];
 
-  const [collections, setCollections] = useState<Collection[] | null>(null);
   const [collectionId, setCollectionId] = useState<string | null>(null);
   const [query, setQuery] = useState(typeof title === "string" ? title : "");
   const [results, setResults] = useState<PlaceSearchResult[]>([]);
@@ -60,12 +56,8 @@ export default function ShareTargetScreen() {
 
   useEffect(() => {
     getCurrentLocation().then(setLocation);
-    listCollections()
-      .then((cs) => {
-        setCollections(cs);
-        // One collection: no need to ask.
-        if (cs.length === 1) setCollectionId(cs[0].id);
-      })
+    getOrCreateGeneralCollection()
+      .then((general) => setCollectionId(general.id))
       .catch((e) => setError(String(e)));
     logEvent("share_target_opened", { social_platform: social?.platform ?? null });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -118,18 +110,6 @@ export default function ShareTargetScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  async function onQuickSaveGeneral() {
-    setBusy(true);
-    setError(null);
-    try {
-      const general = await getOrCreateGeneralCollection();
-      setCollectionId(general.id);
-    } catch (e) {
-      setError(String(e));
-      setBusy(false);
-    }
-  }
 
   async function onSearch() {
     if (!query.trim()) return;
@@ -231,7 +211,7 @@ export default function ShareTargetScreen() {
     }
   }
 
-  if (collections === null) {
+  if (collectionId === null) {
     return (
       <View style={styles.center}>
         <Stack.Screen options={{ title: "Save to Forked" }} />
@@ -282,38 +262,7 @@ export default function ShareTargetScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {busy ? <ActivityIndicator style={{ marginVertical: 8 }} color={colors.primary} /> : null}
 
-      {collections.length === 0 ? (
-        <View style={styles.section}>
-          <EmptyState message="You don't have a list yet. Save this to General for now, then sort it into a list later." />
-          <Button label="Quick save to General" loading={busy} onPress={onQuickSaveGeneral} />
-        </View>
-      ) : !collectionId ? (
-        <View style={styles.section}>
-          <Text style={styles.stepLabel}>Save to which list?</Text>
-          <Pressable
-            style={styles.collectionRow}
-            onPress={onQuickSaveGeneral}
-            accessibilityRole="button"
-            accessibilityLabel="Quick save to General, sort into a list later"
-          >
-            <Text style={styles.collectionName}>⚡ General (sort later)</Text>
-          </Pressable>
-          {collections.filter((c) => !c.is_general).map((c) => (
-            <Pressable
-              key={c.id}
-              style={styles.collectionRow}
-              onPress={() => setCollectionId(c.id)}
-              accessibilityRole="button"
-              accessibilityLabel={`Save to ${c.name}`}
-            >
-              <Text style={styles.collectionName}>{c.name}</Text>
-              <Text style={styles.collectionMeta}>
-                {c.restaurant_count === 1 ? "1 spot" : `${c.restaurant_count ?? 0} spots`}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : resolved ? (
+      {resolved ? (
         <View style={styles.section}>
           <Card>
             <Text style={styles.confirmTitle}>{resolved.name}</Text>
@@ -397,18 +346,6 @@ const themed = themedStyles((colors, type) => ({
   sourceUrl: { ...type.caption },
   section: { gap: spacing.md },
   stepLabel: { ...type.heading, fontSize: 20 },
-  collectionRow: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    justifyContent: "space-between" as const,
-    padding: spacing.base,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  collectionName: { ...type.subtitle },
-  collectionMeta: { ...type.caption },
   searchRow: { flexDirection: "row" as const, gap: spacing.sm },
   searchInput: { flex: 1 },
   suggestingHint: { ...type.caption, color: colors.inkSecondary },

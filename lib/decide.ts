@@ -189,6 +189,48 @@ export function tallyYesVotes(votes: Vote[]): Record<string, number> {
   return counts;
 }
 
+// Optional post-decide reaction: one thumbs up/down per (session, user),
+// recorded once a session is completed. Upsert so a mis-tap is correctable.
+export interface SessionFeedback {
+  id: string;
+  session_id: string;
+  user_id: string;
+  restaurant_id: string;
+  liked: boolean;
+  created_at: string;
+}
+
+export async function submitSessionFeedback(
+  sessionId: string,
+  restaurantId: string,
+  liked: boolean,
+): Promise<void> {
+  const userId = await getUserId();
+  if (!userId) throw new Error("Not signed in");
+  const { error } = await supabase.from("session_feedback").upsert(
+    { session_id: sessionId, user_id: userId, restaurant_id: restaurantId, liked },
+    { onConflict: "session_id,user_id" },
+  );
+  if (error) throw error;
+  await logEvent("decide_feedback_given", { session_id: sessionId, liked });
+}
+
+// Whether (and how) the current user already answered "How was it?" for a
+// session -- null means no feedback yet, so the result screen can skip
+// re-asking someone who's already answered.
+export async function getMyFeedback(sessionId: string): Promise<boolean | null> {
+  const userId = await getUserId();
+  if (!userId) return null;
+  const { data, error } = await supabase
+    .from("session_feedback")
+    .select("liked")
+    .eq("session_id", sessionId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { liked: boolean } | null)?.liked ?? null;
+}
+
 // Approve or un-approve one time option. Approving upserts a row (like
 // castVote); un-approving deletes it instead of writing vote=false, since
 // there's no "explicitly not interested" state to record for a time slot.

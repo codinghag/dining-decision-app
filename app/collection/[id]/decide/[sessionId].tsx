@@ -19,14 +19,16 @@ import Animated, {
 } from "react-native-reanimated";
 import { getUserId, supabase } from "../../../../lib/supabase";
 import { getAuthStatus } from "../../../../lib/auth";
-import type { Restaurant } from "../../../../lib/db";
+import { getCollectionMemberCount, type Restaurant } from "../../../../lib/db";
 import {
   castTimeVote,
   castVote,
   completeSession,
+  getMyFeedback,
   getSessionWithRestaurants,
   listTimeVotes,
   listVotes,
+  submitSessionFeedback,
   tallyTimeApprovals,
   tallyYesVotes,
   type DecideSession,
@@ -43,6 +45,7 @@ import { SignInGate } from "../../../../components/SignInGate";
 import { buildMapsUrl } from "../../../../lib/maps";
 import { isOpenNow } from "../../../../lib/hours";
 import { formatTimeOption } from "../../../../lib/time";
+import { shareDecideResult } from "../../../../lib/invite";
 import { logEvent } from "../../../../lib/analytics";
 import { radius, shadow, spacing, themedStyles, useTheme } from "../../../../lib/theme";
 
@@ -66,6 +69,11 @@ export default function DecideScreen() {
   const [timeOptions, setTimeOptions] = useState<TimeOption[]>([]);
   const [timeVotes, setTimeVotes] = useState<TimeVote[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [memberCount, setMemberCount] = useState<number | null>(null);
+  const [inviteNudgeDismissed, setInviteNudgeDismissed] = useState(false);
+  const [myFeedback, setMyFeedback] = useState<boolean | null>(null);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
@@ -95,6 +103,7 @@ export default function DecideScreen() {
       setTimeVotes(await listTimeVotes(sessionId));
       setUserId(await getUserId());
       setIsAnonymous((await getAuthStatus()).isAnonymous);
+      if (collectionId) setMemberCount(await getCollectionMemberCount(collectionId));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -209,6 +218,42 @@ export default function DecideScreen() {
       if (channel) supabase.removeChannel(channel);
     };
   }, [sessionId]);
+
+  // Once the session completes, check whether this user already answered
+  // "How was it?" so we don't re-ask on a revisit.
+  useEffect(() => {
+    if (!sessionId || session?.status !== "completed") return;
+    getMyFeedback(sessionId)
+      .then(setMyFeedback)
+      .catch(() => {});
+  }, [sessionId, session?.status]);
+
+  async function onGiveFeedback(liked: boolean) {
+    if (!sessionId || !session?.winner_restaurant_id) return;
+    setSubmittingFeedback(true);
+    try {
+      await submitSessionFeedback(sessionId, session.winner_restaurant_id, liked);
+      setMyFeedback(liked);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  }
+
+  async function onShareResult() {
+    if (!collectionId || !session?.winner_restaurant_id) return;
+    setShareFeedback(null);
+    const winnerName = restaurants.find((r) => r.id === session.winner_restaurant_id)?.name;
+    if (!winnerName) return;
+    const winningTime = timeOptions.find((o) => o.id === session.winner_time_option_id);
+    const outcome = await shareDecideResult(
+      collectionId,
+      winnerName,
+      winningTime ? formatTimeOption(winningTime.starts_at) : null,
+    );
+    if (outcome === "copied") setShareFeedback("Copied to clipboard ✓");
+  }
 
   const tallies = useMemo(() => tallyYesVotes(votes), [votes]);
   const maxTally = useMemo(
@@ -547,6 +592,45 @@ export default function DecideScreen() {
               />
             </View>
           ) : null}
+
+          <View style={styles.feedbackRow}>
+            {myFeedback === null ? (
+              <>
+                <Text style={styles.feedbackLabel}>How was it?</Text>
+                <View style={styles.feedbackButtons}>
+                  <Pressable
+                    onPress={() => onGiveFeedback(true)}
+                    disabled={submittingFeedback}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Good pick"
+                  >
+                    <Text style={styles.feedbackEmoji}>👍</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => onGiveFeedback(false)}
+                    disabled={submittingFeedback}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Not a good pick"
+                  >
+                    <Text style={styles.feedbackEmoji}>👎</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <Text style={styles.feedbackLabel}>Thanks for the feedback!</Text>
+            )}
+          </View>
+
+          {shareFeedback ? <Text style={styles.feedback}>{shareFeedback}</Text> : null}
+          <Button
+            label="📤 Share result"
+            variant="outline"
+            style={styles.directionsButton}
+            onPress={onShareResult}
+          />
+
           <Button
             label="Back to list"
             variant="outline"
@@ -562,6 +646,30 @@ export default function DecideScreen() {
             running={session?.status === "active"}
             onExpire={onTimerExpire}
           />
+
+          {session?.status === "active" && memberCount === 1 && !inviteNudgeDismissed ? (
+            <View style={styles.inviteNudge}>
+              <Text style={styles.inviteNudgeText}>Flying solo? Invite your group.</Text>
+              <View style={styles.inviteNudgeActions}>
+                <Pressable
+                  onPress={() => router.push(`/collection/${collectionId}/invite`)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Invite people"
+                >
+                  <Text style={styles.inviteNudgeLink}>Invite →</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setInviteNudgeDismissed(true)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Dismiss"
+                >
+                  <Text style={styles.inviteNudgeDismiss}>Dismiss</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
 
           {timeOptions.length > 0 ? (
             <View style={styles.timeSection}>
@@ -659,6 +767,21 @@ export default function DecideScreen() {
 const themed = themedStyles((colors, type) => ({
   container: { flex: 1, backgroundColor: colors.background, padding: spacing.base, gap: spacing.base },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  inviteNudge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  inviteNudgeText: { ...type.body, flex: 1 },
+  inviteNudgeActions: { flexDirection: "row", gap: spacing.md },
+  inviteNudgeLink: { ...type.label, color: colors.primary, fontWeight: "700" },
+  inviteNudgeDismiss: { ...type.caption, color: colors.inkTertiary },
   timeSection: { gap: spacing.xs },
   timeSectionTitle: { ...type.label },
   timeChips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
@@ -673,6 +796,17 @@ const themed = themedStyles((colors, type) => ({
   timeChipText: { ...type.label, color: colors.inkSecondary },
   timeChipTextOn: { color: colors.primaryDark },
   resultTime: { ...type.body, color: colors.inkSecondary, textAlign: "center" },
+  feedbackRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  feedbackLabel: { ...type.label, color: colors.inkSecondary },
+  feedbackButtons: { flexDirection: "row", gap: spacing.md },
+  feedbackEmoji: { fontSize: 28 },
+  feedback: { ...type.body, color: colors.yes, textAlign: "center" },
   deck: { minHeight: 340, alignItems: "center", justifyContent: "center" },
   card: {
     width: "100%",

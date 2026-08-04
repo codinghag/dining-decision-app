@@ -133,6 +133,17 @@ export async function renameCollection(id: string, name: string): Promise<void> 
   await logEvent("collection_renamed", { collection_id: id });
 }
 
+// Member count for a collection (RLS lets any fellow member read the
+// roster). Used to nudge a solo decider to invite people.
+export async function getCollectionMemberCount(collectionId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("collection_members")
+    .select("*", { count: "exact", head: true })
+    .eq("collection_id", collectionId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 // Remove a single restaurant from a collection (deletes only the join row;
 // the shared restaurants row is left for any other collections). Any member
 // may remove one — enforced by RLS (collection_restaurants_delete).

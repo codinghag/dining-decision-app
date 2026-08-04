@@ -1,6 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 import { Link, useFocusEffect, useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createCollection, listCollections, type Collection } from "../lib/db";
 import { getMyDisplayName, setMyDisplayName } from "../lib/profile";
 import { getAuthStatus, signOut } from "../lib/auth";
@@ -32,6 +33,21 @@ export default function CollectionsScreen() {
   const [nameInput, setNameInput] = useState("");
   const [savingName, setSavingName] = useState(false);
   const [syncEmail, setSyncEmail] = useState<string | null>(null);
+
+  // One-time "try deciding solo" nudge, shown once the General list has
+  // enough spots to make a swipe deck worthwhile. Persisted so it doesn't
+  // reappear every time the user returns to the home screen.
+  const SOLO_DECIDE_PROMPT_KEY = "forked:seenSoloDecidePrompt";
+  const [dismissedSoloPrompt, setDismissedSoloPrompt] = useState(true); // default true until we know
+  useEffect(() => {
+    AsyncStorage.getItem(SOLO_DECIDE_PROMPT_KEY).then((v) =>
+      setDismissedSoloPrompt(v === "1"),
+    );
+  }, []);
+  function dismissSoloPrompt() {
+    setDismissedSoloPrompt(true);
+    AsyncStorage.setItem(SOLO_DECIDE_PROMPT_KEY, "1").catch(() => {});
+  }
 
   const load = useCallback(async () => {
     try {
@@ -173,6 +189,45 @@ export default function CollectionsScreen() {
         </View>
       </View>
 
+      {(() => {
+        const general = collections.find((c) => c.is_general);
+        const showSoloPrompt =
+          !dismissedSoloPrompt && (general?.restaurant_count ?? 0) >= 2;
+        if (!showSoloPrompt || !general) return null;
+        return (
+          <View style={styles.soloPrompt}>
+            <View style={styles.soloPromptBody}>
+              <Text style={styles.soloPromptTitle}>Can't decide?</Text>
+              <Text style={styles.soloPromptText}>
+                Try "Let's Decide" on your own General list — swipe through
+                and see what wins.
+              </Text>
+            </View>
+            <View style={styles.soloPromptActions}>
+              <Pressable
+                onPress={() => {
+                  dismissSoloPrompt();
+                  router.push(`/collection/${general.id}`);
+                }}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Try Let's Decide"
+              >
+                <Text style={styles.soloPromptLink}>Try it →</Text>
+              </Pressable>
+              <Pressable
+                onPress={dismissSoloPrompt}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss"
+              >
+                <Text style={styles.soloPromptDismiss}>Dismiss</Text>
+              </Pressable>
+            </View>
+          </View>
+        );
+      })()}
+
       <View style={styles.createRow}>
         <TextField
           style={styles.input}
@@ -239,6 +294,23 @@ const themed = themedStyles((colors, type) => ({
   },
   accountEmail: { ...type.caption, flexShrink: 1 },
   accountLink: { ...type.caption, color: colors.primary, fontWeight: "600" },
+  soloPrompt: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.base,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    marginBottom: spacing.md,
+  },
+  soloPromptBody: { flex: 1, gap: 2 },
+  soloPromptTitle: { ...type.label },
+  soloPromptText: { ...type.caption, color: colors.inkSecondary },
+  soloPromptActions: { alignItems: "flex-end", gap: 4 },
+  soloPromptLink: { ...type.label, color: colors.primary, fontWeight: "700" },
+  soloPromptDismiss: { ...type.caption, color: colors.inkTertiary },
   createRow: { flexDirection: "row", gap: spacing.sm },
   createRowFill: { flexDirection: "row", gap: spacing.sm, flex: 1 },
   input: { flex: 1 },
