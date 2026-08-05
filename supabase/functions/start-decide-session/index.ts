@@ -1,8 +1,8 @@
 // start-decide-session: a member taps "Let's Decide". We (service role):
 //   1. verify the caller is a member of the collection,
 //   2. reuse an existing active session for this collection if one exists,
-//   3. otherwise pick a random 3 restaurant ids from the collection (or all if
-//      <= 3) and insert the decide_sessions row (status 'active'), backstopped
+//   3. otherwise take every restaurant currently in the collection and
+//      insert the decide_sessions row (status 'active'), backstopped
 //      by a unique index (see 0004_phase2_fixes.sql) against the concurrent
 //      double-tap race, then insert the organizer's proposed time slots,
 //   4. best-effort push all OTHER members via Expo ("Time to decide where to eat"),
@@ -34,16 +34,6 @@ interface TimeOption {
   id: string;
   session_id: string;
   starts_at: string;
-}
-
-// Fisher–Yates shuffle, then take the first n.
-function sample<T>(arr: T[], n: number): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a.slice(0, n);
 }
 
 Deno.serve(async (req) => {
@@ -109,7 +99,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ session, restaurants, timeOptions: existingTimeOptions });
     }
 
-    // 3. Random sample of restaurant ids from the collection.
+    // 3. Every restaurant in the collection goes into the deck (was
+    // previously a random sample of 3 -- changed per user request so the
+    // group votes on the whole list, not a subset).
     const links = await db.select<{ restaurant_id: string }>(
       "collection_restaurants",
       `collection_id=eq.${collectionId}&select=restaurant_id`,
@@ -121,7 +113,7 @@ Deno.serve(async (req) => {
         400,
       );
     }
-    const chosenIds = sample(allIds, Math.min(3, allIds.length));
+    const chosenIds = [...allIds];
 
     // 3b. Optional wildcard: a restaurant the client picked from Google that
     // isn't necessarily in the collection (a "try somewhere new" surprise).
