@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "com.cena25.diningdecision",
       "sha256_cert_fingerprints": [
-        "DB:64:0A:F2:FB:6F:01:99:8F:0F:33:52:5B:71:E4:D9:23:CD:E2:F6:97:6A:70:86:80:F8:C7:0D:4C:62:6C:ED"
+        "DB:64:0A:F2:FB:6F:01:99:8F:0F:33:52:5B:71:E4:D9:23:CD:E2:F6:97:6A:70:86:80:F8:C7:0D:4C:62:6C:ED",
+        "4D:28:39:1A:6A:D3:18:D2:DD:90:B0:C2:31:A8:B0:43:02:66:6A:6B:EC:C6:37:93:CA:0E:8D:DF:D5:75:8D:CA"
       ]
     }
   }
