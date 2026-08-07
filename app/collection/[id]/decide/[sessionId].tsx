@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Linking,
   Pressable,
+  ScrollView,
   Text,
   View,
   useWindowDimensions,
@@ -28,6 +29,7 @@ import {
   getSessionWithRestaurants,
   listTimeVotes,
   listVotes,
+  notifyDecideComplete,
   submitSessionFeedback,
   tallyTimeApprovals,
   tallyYesVotes,
@@ -384,6 +386,7 @@ export default function DecideScreen() {
       const completed = await completeSession(sessionId);
       setSession(completed);
       setVotes(await listVotes(sessionId));
+      notifyDecideComplete(sessionId);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -516,7 +519,7 @@ export default function DecideScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Stack.Screen options={{ title: "Let's Decide" }} />
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -760,12 +763,13 @@ export default function DecideScreen() {
           />
         </>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const themed = themedStyles((colors, type) => ({
-  container: { flex: 1, backgroundColor: colors.background, padding: spacing.base, gap: spacing.base },
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { padding: spacing.base, gap: spacing.base },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   inviteNudge: {
     flexDirection: "row",

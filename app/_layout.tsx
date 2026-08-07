@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Platform, Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import * as Notifications from "expo-notifications";
 import { Stack, usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -11,6 +12,27 @@ import { logEvent } from "../lib/analytics";
 import { registerPushToken } from "../lib/push";
 import { SignInGate } from "../components/SignInGate";
 import { themedStyles, useTheme } from "../lib/theme";
+
+// Where each push type's tap should land. Shared by both the live listener
+// (foreground/background taps) and the cold-start check below.
+function routeForNotification(data: Record<string, unknown> | undefined) {
+  if (!data) return null;
+  switch (data.type) {
+    case "collection_invite":
+      return `/collection/${data.collectionId}`;
+    case "decide_session":
+    case "decide_complete":
+      return `/collection/${data.collectionId}/decide/${data.sessionId}`;
+    case "friend_added":
+      return "/friends";
+    case "restaurant_shared":
+      // No single-restaurant deep link -- it lands in the recipient's own
+      // General list, so just go home rather than build one for this.
+      return "/";
+    default:
+      return null;
+  }
+}
 
 type Phase = "loading" | "gate" | "app";
 
@@ -102,6 +124,25 @@ export default function RootLayout() {
       registerPushToken();
     }
   }, [phase]);
+
+  // Notification taps: route to the relevant screen instead of just opening
+  // the app to wherever it happened to be. Two paths: the live listener
+  // (app was foregrounded/backgrounded when tapped) and a one-time
+  // cold-start check (app was fully closed, the tap is what launched it).
+  useEffect(() => {
+    if (phase !== "app" || Platform.OS === "web") return;
+    const navigate = (data: Record<string, unknown> | undefined) => {
+      const path = routeForNotification(data);
+      if (path) router.push(path);
+    };
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      navigate(response?.notification.request.content.data);
+    });
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      navigate(response.notification.request.content.data);
+    });
+    return () => sub.remove();
+  }, [phase, router]);
 
   // Android share-sheet target: a post shared from Instagram/TikTok/etc.
   // arrives here. Native-module only (self-disables on web and in Expo Go);

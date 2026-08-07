@@ -304,3 +304,15 @@ export async function completeSession(
   });
   return session;
 }
+
+// Best-effort push to the rest of the group once a session completes.
+// Fire-and-forget: never throws, since a failed notification shouldn't block
+// the result view from showing. Safe to call from every client that
+// witnesses completion -- the server-side claim makes only one push go out.
+export async function notifyDecideComplete(sessionId: string): Promise<void> {
+  try {
+    await invokeEdgeFunction("notify-decide-complete", { sessionId });
+  } catch {
+    // ignored -- this is a nice-to-have, not a correctness requirement
+  }
+}

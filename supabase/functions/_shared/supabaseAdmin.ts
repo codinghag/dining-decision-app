@@ -94,6 +94,27 @@ export function admin() {
       return text ? (JSON.parse(text) as T[]) : [];
     },
 
+    // UPDATE rows matching a raw PostgREST filter query (same query-string
+    // format as `select`, e.g. `id=eq.<uuid>&status=eq.active`). Returns the
+    // updated rows, so callers can tell an atomic conditional update (e.g.
+    // `...&notified_at=is.null`) actually matched something vs. lost a race.
+    async update<T = unknown>(
+      table: string,
+      query: string,
+      patch: unknown,
+    ): Promise<T[]> {
+      const res = await fetch(`${base}/${table}?${query}`, {
+        method: "PATCH",
+        headers: headers({ Prefer: "return=representation" }),
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        throw new Error(`update ${table} failed (${res.status}): ${await res.text()}`);
+      }
+      const text = await res.text();
+      return text ? (JSON.parse(text) as T[]) : [];
+    },
+
     // Call a Postgres function via PostgREST's /rpc endpoint. Prefer this
     // over hand-rolling a query for anything that already has a SQL helper
     // (e.g. is_collection_member) so the authorization rule lives in exactly
