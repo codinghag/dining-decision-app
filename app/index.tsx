@@ -112,7 +112,7 @@ export default function CollectionsScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer scroll={false}>
       {/* Editorial header: serif greeting + account line, like a menu cover. */}
       <View style={styles.header}>
         <Text style={styles.kicker}>THE TABLE IS YOURS</Text>

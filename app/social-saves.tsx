@@ -77,7 +77,7 @@ export default function SocialSavesScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer scroll={false}>
       <Stack.Screen options={{ title: "Instagram & TikTok saves" }} />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}

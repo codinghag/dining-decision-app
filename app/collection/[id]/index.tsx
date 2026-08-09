@@ -189,7 +189,7 @@ export default function CollectionDetailScreen() {
   const hasRestaurants = restaurants.length > 0;
 
   return (
-    <ScreenContainer>
+    <ScreenContainer scroll={false}>
       {/* title is metadata only (browser tab / task switcher) — the header
           itself is just the default back arrow + centered Forked mark; the
           list's name is shown in the body below instead (see listName). */}
